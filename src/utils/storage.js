@@ -304,3 +304,19 @@ export const importBackup = (userId, jsonString) => {
   }
   return false;
 };
+
+// Sync active stopwatch state across windows
+export const getTimerState = (userId) => {
+  if (!userId) return null;
+  return JSON.parse(localStorage.getItem(`tempo_timer_state_${userId}`)) || null;
+};
+
+export const saveTimerState = (userId, state) => {
+  if (!userId) return;
+  if (state) {
+    localStorage.setItem(`tempo_timer_state_${userId}`, JSON.stringify(state));
+  } else {
+    localStorage.removeItem(`tempo_timer_state_${userId}`);
+  }
+};
+

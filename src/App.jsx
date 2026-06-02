@@ -68,6 +68,8 @@ export default function App() {
   const [invoiceDueDate, setInvoiceDueDate] = useState('');
   const [invoiceTaxRate, setInvoiceTaxRate] = useState(0);
 
+  const isPopout = window.location.search.includes('popout=true');
+
   // Initialize Auth & Theme on mount
   useEffect(() => {
     const user = getCurrentUser();
@@ -98,6 +100,40 @@ export default function App() {
       setUserProfile({});
       setInvoiceTaxRate(0);
     }
+  }, [currentUser]);
+
+  // Synchronize state across tabs and pop-out windows
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (!currentUser) return;
+      
+      // Sync entries
+      if (e.key === `tempo_entries_${currentUser.id}`) {
+        setEntries(getEntries(currentUser.id));
+      }
+      // Sync clients
+      if (e.key === `tempo_clients_${currentUser.id}`) {
+        setClients(getClients(currentUser.id));
+      }
+      // Sync categories
+      if (e.key === `tempo_categories_${currentUser.id}`) {
+        setCategories(getCategories(currentUser.id));
+      }
+      // Sync current user session
+      if (e.key === 'tempo_current_user') {
+        const user = getCurrentUser();
+        setCurrentUser(user);
+      }
+      // Sync theme
+      if (e.key === 'tempo_theme') {
+        const savedTheme = getTheme();
+        setTheme(savedTheme);
+        document.documentElement.setAttribute('data-theme', savedTheme);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, [currentUser]);
 
   // Theme toggle
@@ -295,6 +331,20 @@ export default function App() {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
+  // Render ONLY the Timer Component if page is opened in Popout Mode
+  if (isPopout) {
+    return (
+      <div style={{ padding: '1rem', height: '100vh', boxSizing: 'border-box', overflow: 'hidden', backgroundColor: 'var(--bg-primary)' }}>
+        <Timer 
+          userId={currentUser.id} 
+          clients={clients} 
+          categories={categories} 
+          onLogEntry={handleSaveEntry} 
+        />
+      </div>
+    );
+  }
+
   // Calculate quick summary metrics
   const unbilledCount = entries.filter(e => e.status === 'Unbilled').length;
 
@@ -450,7 +500,7 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
               <Dashboard entries={entries} clients={clients} />
               <div className="dashboard-grid">
-                <Timer clients={clients} categories={categories} onLogEntry={handleSaveEntry} />
+                <Timer userId={currentUser.id} clients={clients} categories={categories} onLogEntry={handleSaveEntry} />
                 <Analytics entries={entries} clients={clients} />
               </div>
             </div>
@@ -458,7 +508,7 @@ export default function App() {
           
           {activeTab === 'timer' && (
             <div style={{ maxWidth: '750px', margin: '0 auto' }}>
-              <Timer clients={clients} categories={categories} onLogEntry={handleSaveEntry} />
+              <Timer userId={currentUser.id} clients={clients} categories={categories} onLogEntry={handleSaveEntry} />
             </div>
           )}
           
