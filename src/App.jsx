@@ -10,9 +10,11 @@ import {
   Moon, 
   Sun,
   FileText,
-  X
+  X,
+  LogOut
 } from 'lucide-react';
 
+import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Timer from './components/Timer';
 import EntryForm from './components/EntryForm';
@@ -23,6 +25,8 @@ import Analytics from './components/Analytics';
 import ProfileMgr from './components/ProfileMgr';
 
 import { 
+  getCurrentUser,
+  saveCurrentUser,
   getClients, 
   saveClients, 
   getCategories, 
@@ -38,6 +42,10 @@ import {
 import { generateInvoicePDF } from './utils/pdfGenerator';
 
 export default function App() {
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authInitialized, setAuthInitialized] = useState(false);
+
   // App States
   const [clients, setClients] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -60,20 +68,37 @@ export default function App() {
   const [invoiceDueDate, setInvoiceDueDate] = useState('');
   const [invoiceTaxRate, setInvoiceTaxRate] = useState(0);
 
-  // Initialize data on mount
+  // Initialize Auth & Theme on mount
   useEffect(() => {
-    setClients(getClients());
-    setCategories(getCategories());
-    setEntries(getEntries());
-    
-    const profile = getUserProfile();
-    setUserProfile(profile);
-    setInvoiceTaxRate(profile.taxRate || 0);
+    const user = getCurrentUser();
+    if (user) {
+      setCurrentUser(user);
+    }
+    setAuthInitialized(true);
 
     const savedTheme = getTheme();
     setTheme(savedTheme);
     document.documentElement.setAttribute('data-theme', savedTheme);
   }, []);
+
+  // Sync data when currentUser changes
+  useEffect(() => {
+    if (currentUser) {
+      setClients(getClients(currentUser.id));
+      setCategories(getCategories(currentUser.id));
+      setEntries(getEntries(currentUser.id));
+      
+      const profile = getUserProfile(currentUser.id);
+      setUserProfile(profile);
+      setInvoiceTaxRate(profile.taxRate || 0);
+    } else {
+      setClients([]);
+      setCategories([]);
+      setEntries([]);
+      setUserProfile({});
+      setInvoiceTaxRate(0);
+    }
+  }, [currentUser]);
 
   // Theme toggle
   const toggleTheme = () => {
@@ -81,6 +106,19 @@ export default function App() {
     setTheme(nextTheme);
     saveTheme(nextTheme);
     document.documentElement.setAttribute('data-theme', nextTheme);
+  };
+
+  // --- Auth Handlers ---
+  const handleLoginSuccess = (user) => {
+    setCurrentUser(user);
+    setActiveTab('dashboard');
+  };
+
+  const handleLogout = () => {
+    if (window.confirm("Are you sure you want to log out?")) {
+      saveCurrentUser(null);
+      setCurrentUser(null);
+    }
   };
 
   // --- Clients CRUD Handlers ---
@@ -91,32 +129,32 @@ export default function App() {
     };
     const updated = [...clients, payload];
     setClients(updated);
-    saveClients(updated);
+    saveClients(currentUser.id, updated);
   };
 
   const handleUpdateClient = (id, updatedDetails) => {
     const updated = clients.map(c => c.id === id ? { ...c, ...updatedDetails } : c);
     setClients(updated);
-    saveClients(updated);
+    saveClients(currentUser.id, updated);
   };
 
   const handleDeleteClient = (id) => {
     const updated = clients.filter(c => c.id !== id);
     setClients(updated);
-    saveClients(updated);
+    saveClients(currentUser.id, updated);
   };
 
   // --- Categories CRUD Handlers ---
   const handleAddCategory = (newCat) => {
     const updated = [...categories, newCat];
     setCategories(updated);
-    saveCategories(updated);
+    saveCategories(currentUser.id, updated);
   };
 
   const handleDeleteCategory = (catToDelete) => {
     const updated = categories.filter(c => c !== catToDelete);
     setCategories(updated);
-    saveCategories(updated);
+    saveCategories(currentUser.id, updated);
   };
 
   // --- Entries CRUD Handlers ---
@@ -136,14 +174,14 @@ export default function App() {
       setIsManualLogModalOpen(false);
     }
     setEntries(updated);
-    saveEntries(updated);
+    saveEntries(currentUser.id, updated);
   };
 
   const handleDeleteEntry = (id) => {
     if (window.confirm("Are you sure you want to delete this time entry?")) {
       const updated = entries.filter(e => e.id !== id);
       setEntries(updated);
-      saveEntries(updated);
+      saveEntries(currentUser.id, updated);
     }
   };
 
@@ -160,13 +198,13 @@ export default function App() {
       return e;
     });
     setEntries(updated);
-    saveEntries(updated);
+    saveEntries(currentUser.id, updated);
   };
 
   // --- User Profile Handlers ---
   const handleUpdateProfile = (updatedProfile) => {
     setUserProfile(updatedProfile);
-    saveUserProfile(updatedProfile);
+    saveUserProfile(currentUser.id, updatedProfile);
     setInvoiceTaxRate(updatedProfile.taxRate || 0);
   };
 
@@ -227,7 +265,7 @@ export default function App() {
     });
     
     setEntries(updatedEntries);
-    saveEntries(updatedEntries);
+    saveEntries(currentUser.id, updatedEntries);
 
     // 3. Reset Modal
     setInvoiceModalOpen(false);
@@ -236,6 +274,16 @@ export default function App() {
     
     alert(`Invoice ${invoiceNumber} downloaded and entries updated successfully!`);
   };
+
+  // Wait until auth is checked
+  if (!authInitialized) {
+    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0b0f19', color: '#fff' }}>Loading Tempo...</div>;
+  }
+
+  // Render Login Gate if no active user session
+  if (!currentUser) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
 
   // Calculate quick summary metrics
   const unbilledCount = entries.filter(e => e.status === 'Unbilled').length;
@@ -325,6 +373,18 @@ export default function App() {
               >
                 <UserCircle2 size={20} />
                 <span>Settings</span>
+              </button>
+            </li>
+            
+            {/* Log Out Action */}
+            <li style={{ marginTop: '2.5rem' }}>
+              <button 
+                className="nav-item"
+                onClick={handleLogout}
+                style={{ color: 'var(--color-danger)', border: '1px solid rgba(239, 68, 68, 0.1)', backgroundColor: 'rgba(239, 68, 68, 0.02)' }}
+              >
+                <LogOut size={20} />
+                <span>Log Out</span>
               </button>
             </li>
           </ul>
