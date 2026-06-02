@@ -16,6 +16,7 @@ This document tracks the feature roadmap, active task list, completed milestones
 | **PDF Invoice Generator** | Compile dynamic invoices with custom taxes and payment info | ✅ Completed | v1.0.0 |
 | **User Sign-up & Login** | Gated sessions and local-first namespaced data isolation | ✅ Completed | v1.1.0 |
 | **Inline Category Modifying** | Rename categories inline with cascading updates to logs | ✅ Completed | v1.2.0 |
+| **Pop-out Timer Window** | Standalone popout tracker window with cross-tab sync | ✅ Completed | v1.3.0 |
 | **Cloud Database Sync** | Server sync using Firebase / Supabase for cross-device access | 📋 Planned | v2.0.0 |
 | **Invoice Email Integration** | Send PDF invoices directly to client emails from the app | 📋 Planned | v2.1.0 |
 | **Timer Idle Detection** | Prompt user to discard or resume if timer runs but no keyboard/mouse activity is detected | 📋 Planned | v2.2.0 |
@@ -32,6 +33,13 @@ This document tracks the feature roadmap, active task list, completed milestones
 ---
 
 ## 📜 Changelog
+
+### [v1.3.0] - 2026-06-02
+#### Added
+* Dedicated pop-out timer button in the active stopwatch panel, opening a standalone, resizable window (`width=400`, `height=500`).
+* Cross-window synchronization using the browser's `storage` event handler. The main dashboard and the pop-out window stay perfectly in sync in real-time.
+* Non-blocking timestamp delta calculations: elapsed time is computed relative to high-resolution system timestamps stored in `localStorage`, preventing browser clock drift or window freezing.
+* Gated access: Standalone popout enforces session validation to preserve data sandboxing.
 
 ### [v1.2.0] - 2026-06-02
 #### Added
