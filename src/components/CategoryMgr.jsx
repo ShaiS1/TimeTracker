@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, FolderPlus, X } from 'lucide-react';
+import { Plus, Trash2, FolderPlus, Edit2, Check, X } from 'lucide-react';
 
-export default function CategoryMgr({ categories, onAddCategory, onDeleteCategory }) {
+export default function CategoryMgr({ categories, onAddCategory, onDeleteCategory, onUpdateCategory }) {
   const [newCategory, setNewCategory] = useState('');
+  const [editingIndex, setEditingIndex] = useState(-1);
+  const [editingValue, setEditingValue] = useState('');
 
   const handleAdd = (e) => {
     e.preventDefault();
@@ -24,6 +26,31 @@ export default function CategoryMgr({ categories, onAddCategory, onDeleteCategor
     }
   };
 
+  const handleStartEdit = (idx, cat) => {
+    setEditingIndex(idx);
+    setEditingValue(cat);
+  };
+
+  const handleSaveEdit = (idx, oldCat) => {
+    const cleanVal = editingValue.trim();
+    if (!cleanVal) {
+      alert('Category name cannot be empty.');
+      return;
+    }
+
+    if (cleanVal.toLowerCase() !== oldCat.toLowerCase() && categories.some(c => c.toLowerCase() === cleanVal.toLowerCase())) {
+      alert('This category already exists.');
+      return;
+    }
+
+    onUpdateCategory(oldCat, cleanVal);
+    setEditingIndex(-1);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingIndex(-1);
+  };
+
   return (
     <div className="card" style={{ maxWidth: '600px', margin: '0 auto' }}>
       <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
@@ -32,7 +59,7 @@ export default function CategoryMgr({ categories, onAddCategory, onDeleteCategor
       </div>
       
       <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-        Customize the task categories available when logging hours (e.g. Consulting, UI Design, Content Writing).
+        Customize the task categories available when logging hours (e.g. Consulting, UI Design, Content Writing). Modifying a category will automatically update all existing logs associated with it.
       </p>
 
       <form onSubmit={handleAdd} style={{ display: 'flex', gap: '0.75rem', marginBottom: '2rem' }}>
@@ -68,14 +95,55 @@ export default function CategoryMgr({ categories, onAddCategory, onDeleteCategor
                 borderRadius: 'var(--radius-md)' 
               }}
             >
-              <span style={{ fontWeight: 500, fontSize: '0.95rem' }}>{cat}</span>
-              <button 
-                className="btn btn-secondary btn-icon-only btn-sm" 
-                style={{ color: 'var(--color-danger)', borderColor: 'rgba(239, 68, 68, 0.15)' }}
-                onClick={() => handleDelete(cat)}
-              >
-                <Trash2 size={14} />
-              </button>
+              {editingIndex === idx ? (
+                <div style={{ display: 'flex', gap: '0.5rem', flex: 1, marginRight: '1rem' }}>
+                  <input
+                    type="text"
+                    className="input-field"
+                    style={{ padding: '0.35rem 0.75rem', fontSize: '0.9rem' }}
+                    value={editingValue}
+                    onChange={(e) => setEditingValue(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                  <button 
+                    className="btn btn-secondary btn-icon-only btn-sm"
+                    style={{ color: 'var(--color-paid)', borderColor: 'rgba(16, 185, 129, 0.15)' }}
+                    onClick={() => handleSaveEdit(idx, cat)}
+                    title="Save"
+                  >
+                    <Check size={14} />
+                  </button>
+                  <button 
+                    className="btn btn-secondary btn-icon-only btn-sm"
+                    onClick={handleCancelEdit}
+                    title="Cancel"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <span style={{ fontWeight: 500, fontSize: '0.95rem' }}>{cat}</span>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button 
+                      className="btn btn-secondary btn-icon-only btn-sm" 
+                      onClick={() => handleStartEdit(idx, cat)}
+                      title="Edit"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                    <button 
+                      className="btn btn-secondary btn-icon-only btn-sm" 
+                      style={{ color: 'var(--color-danger)', borderColor: 'rgba(239, 68, 68, 0.15)' }}
+                      onClick={() => handleDelete(cat)}
+                      title="Delete"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ))
         )}

@@ -157,6 +157,16 @@ export default function App() {
     saveCategories(currentUser.id, updated);
   };
 
+  const handleUpdateCategory = (oldCatName, newCatName) => {
+    const updatedCats = categories.map(c => c === oldCatName ? newCatName : c);
+    setCategories(updatedCats);
+    saveCategories(currentUser.id, updatedCats);
+
+    const updatedEntries = entries.map(e => e.category === oldCatName ? { ...e, category: newCatName } : e);
+    setEntries(updatedEntries);
+    saveEntries(currentUser.id, updatedEntries);
+  };
+
   // --- Entries CRUD Handlers ---
   const handleSaveEntry = (entryPayload) => {
     let updated;
@@ -477,6 +487,7 @@ export default function App() {
               categories={categories} 
               onAddCategory={handleAddCategory} 
               onDeleteCategory={handleDeleteCategory} 
+              onUpdateCategory={handleUpdateCategory}
             />
           )}
 
