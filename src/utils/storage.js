@@ -190,6 +190,20 @@ export const loginUser = (email, password) => {
   return { success: true, user };
 };
 
+export const resetUserPassword = (email, newPassword) => {
+  const users = getUsers();
+  const normalizedEmail = email.toLowerCase().trim();
+  const userIndex = users.findIndex(u => u.email === normalizedEmail);
+
+  if (userIndex === -1) {
+    return { success: false, error: 'No account found with this email address.' };
+  }
+
+  users[userIndex].password = newPassword;
+  saveUsers(users);
+  return { success: true };
+};
+
 export const getCurrentUser = () => {
   return JSON.parse(localStorage.getItem(STORAGE_KEYS.CURRENT_USER)) || null;
 };

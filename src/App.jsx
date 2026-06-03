@@ -226,12 +226,18 @@ export default function App() {
 
   const handleLogout = async () => {
     if (window.confirm("Are you sure you want to log out?")) {
-      if (isAmplifyConfigured) {
-        await signOut();
-      } else {
-        saveLocalCurrentUser(null);
+      try {
+        if (isAmplifyConfigured) {
+          await signOut();
+        } else {
+          saveLocalCurrentUser(null);
+        }
+      } catch (err) {
+        console.error("Signout error:", err);
+      } finally {
+        setCurrentUser(null);
+        setActiveTab('dashboard');
       }
-      setCurrentUser(null);
     }
   };
 

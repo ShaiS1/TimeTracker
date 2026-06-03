@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { LogIn, UserPlus, Key, Mail, User, Clock, AlertCircle, ShieldAlert, CheckCircle } from 'lucide-react';
-import { signIn, signUp, confirmSignUp, getCurrentUser } from 'aws-amplify/auth';
-import { registerUser, loginUser } from '../utils/storage';
+import { signIn, signUp, confirmSignUp, getCurrentUser, resetPassword, confirmResetPassword } from 'aws-amplify/auth';
+import { registerUser, loginUser, resetUserPassword } from '../utils/storage';
 import outputs from '../../amplify_outputs.json';
 
 const isAmplifyConfigured = outputs && Object.keys(outputs).length > 0;
@@ -16,6 +16,102 @@ export default function Login({ onLoginSuccess }) {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [resetStep, setResetStep] = useState('REQUEST_CODE');
+  const [newPassword, setNewPassword] = useState('');
+
+  const handleForgotPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMsg('');
+    setLoading(true);
+
+    try {
+      if (!isAmplifyConfigured) {
+        // Local fallback forgot password
+        if (resetStep === 'REQUEST_CODE') {
+          if (!email.trim()) {
+            setError('Email address is required.');
+            setLoading(false);
+            return;
+          }
+          const res = resetUserPassword(email, 'dummy');
+          if (res.error) {
+            setError(res.error);
+          } else {
+            setResetStep('CONFIRM_RESET');
+            setSuccessMsg('Local reset verification code sent to your email (Mock code is 123456).');
+          }
+        } else {
+          if (!confirmationCode.trim() || !newPassword.trim()) {
+            setError('All fields are required.');
+            setLoading(false);
+            return;
+          }
+          if (newPassword.length < 6) {
+            setError('Password must be at least 6 characters long.');
+            setLoading(false);
+            return;
+          }
+          const res = resetUserPassword(email, newPassword);
+          if (res.success) {
+            setSuccessMsg('Password reset successfully! Please log in now with your new password.');
+            setIsForgotPassword(false);
+            setPassword('');
+            setNewPassword('');
+            setConfirmationCode('');
+          } else {
+            setError(res.error || 'Failed to reset password.');
+          }
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Cognito forgot password flow
+      if (resetStep === 'REQUEST_CODE') {
+        if (!email.trim()) {
+          setError('Email address is required.');
+          setLoading(false);
+          return;
+        }
+        const output = await resetPassword({ username: email.toLowerCase().trim() });
+        const { nextStep } = output;
+        if (nextStep.resetPasswordStep === 'CONFIRM_RESET_PASSWORD_WITH_CODE') {
+          setResetStep('CONFIRM_RESET');
+          setSuccessMsg(`A verification code has been sent to ${nextStep.codeDeliveryDetails.deliveryMedium}.`);
+        } else {
+          setError('Failed to initiate password reset. Please try again.');
+        }
+      } else {
+        if (!confirmationCode.trim() || !newPassword.trim()) {
+          setError('Verification code and new password are required.');
+          setLoading(false);
+          return;
+        }
+        if (newPassword.length < 8) {
+          setError('New password must be at least 8 characters long.');
+          setLoading(false);
+          return;
+        }
+        await confirmResetPassword({
+          username: email.toLowerCase().trim(),
+          confirmationCode: confirmationCode.trim(),
+          newPassword: newPassword
+        });
+        setSuccessMsg('Password reset successfully! Please log in now.');
+        setIsForgotPassword(false);
+        setPassword('');
+        setNewPassword('');
+        setConfirmationCode('');
+      }
+    } catch (err) {
+      console.error('Password reset error:', err);
+      setError(err.message || 'An error occurred during password reset.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -195,11 +291,15 @@ export default function Login({ onLoginSuccess }) {
             Welcome to Tempo
           </h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-            {needsConfirmation 
-              ? 'Verify your email address to activate your account.' 
-              : isSignUp 
-                ? 'Create your cloud account to start tracking hours.' 
-                : 'Sign in to access your secure client invoices.'}
+            {isForgotPassword
+              ? resetStep === 'REQUEST_CODE'
+                ? 'Enter your email to receive a password reset code.'
+                : 'Enter your verification code and choose a new password.'
+              : needsConfirmation 
+                ? 'Verify your email address to activate your account.' 
+                : isSignUp 
+                  ? 'Create your cloud account to start tracking hours.' 
+                  : 'Sign in to access your secure client invoices.'}
           </p>
         </div>
 
@@ -242,8 +342,65 @@ export default function Login({ onLoginSuccess }) {
         )}
 
         {/* Auth Form */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {needsConfirmation ? (
+        <form onSubmit={isForgotPassword ? handleForgotPasswordSubmit : handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {isForgotPassword ? (
+            resetStep === 'REQUEST_CODE' ? (
+              /* Request Reset Code Form */
+              <div className="form-group">
+                <label>Email Address</label>
+                <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                  <Mail size={16} style={{ position: 'absolute', left: '0.85rem', color: 'var(--text-muted)' }} />
+                  <input
+                    type="email"
+                    className="input-field"
+                    style={{ paddingLeft: '2.5rem' }}
+                    placeholder="name@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+            ) : (
+              /* Confirm Reset Form */
+              <>
+                <div className="form-group">
+                  <label>Verification Code</label>
+                  <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                    <Key size={16} style={{ position: 'absolute', left: '0.85rem', color: 'var(--text-muted)' }} />
+                    <input
+                      type="text"
+                      className="input-field"
+                      style={{ paddingLeft: '2.5rem', letterSpacing: '0.15em', textAlign: 'center', fontWeight: 'bold' }}
+                      placeholder="123456"
+                      value={confirmationCode}
+                      onChange={(e) => setConfirmationCode(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
+                    Enter the code sent to <strong>{email}</strong>.
+                  </p>
+                </div>
+
+                <div className="form-group">
+                  <label>New Password</label>
+                  <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                    <Key size={16} style={{ position: 'absolute', left: '0.85rem', color: 'var(--text-muted)' }} />
+                    <input
+                      type="password"
+                      className="input-field"
+                      style={{ paddingLeft: '2.5rem' }}
+                      placeholder="••••••••"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              </>
+            )
+          ) : needsConfirmation ? (
             /* Confirmation Code Form */
             <div className="form-group">
               <label>Verification Code</label>
@@ -316,6 +473,31 @@ export default function Login({ onLoginSuccess }) {
                   />
                 </div>
               </div>
+
+              {!isSignUp && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-0.75rem', marginBottom: '0.25rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsForgotPassword(true);
+                      setResetStep('REQUEST_CODE');
+                      setError('');
+                      setSuccessMsg('');
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--color-primary)',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      padding: 0
+                    }}
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+              )}
             </>
           )}
 
@@ -342,6 +524,16 @@ export default function Login({ onLoginSuccess }) {
                 borderRadius: '50%',
                 animation: 'spin 0.6s linear infinite'
               }} />
+            ) : isForgotPassword ? (
+              resetStep === 'REQUEST_CODE' ? (
+                <>
+                  <Mail size={18} /> Send Reset Code
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={18} /> Reset Password
+                </>
+              )
             ) : needsConfirmation ? (
               <>
                 <CheckCircle size={18} /> Confirm Code
@@ -381,7 +573,26 @@ export default function Login({ onLoginSuccess }) {
             fontSize: '0.85rem',
             color: 'var(--text-secondary)'
           }}>
-            {isSignUp ? (
+            {isForgotPassword ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsForgotPassword(false);
+                  setError('');
+                  setSuccessMsg('');
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--color-primary)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: 0
+                }}
+              >
+                Back to Sign In
+              </button>
+            ) : isSignUp ? (
               <>
                 Already have an account?{' '}
                 <button
