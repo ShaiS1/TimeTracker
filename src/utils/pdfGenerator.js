@@ -62,7 +62,7 @@ export const generateInvoicePDF = async (userProfile, client, entries, invoiceMe
   doc.setTextColor(lightTextColor[0], lightTextColor[1], lightTextColor[2]);
   
   // Contractor Address Block
-  let contractorY = 26;
+  let contractorY = logoImg ? 31 : 26;
   if (userProfile.address) {
     const addrLines = doc.splitTextToSize(userProfile.address, 70);
     addrLines.forEach(line => {
@@ -96,12 +96,13 @@ export const generateInvoicePDF = async (userProfile, client, entries, invoiceMe
   printMetaRow('Due Date:', formatDate(dueDate));
 
   // Divider Line
+  const dividerY = Math.max(contractorY + 5, metaY + 2);
   doc.setDrawColor(226, 232, 240); // light gray
   doc.setLineWidth(0.5);
-  doc.line(14, metaY + 2, 196, metaY + 2);
+  doc.line(14, dividerY, 196, dividerY);
 
   // 3. Bill To / Bill From Details
-  let billingY = metaY + 12;
+  let billingY = dividerY + 6;
 
   // Bill To (Left Column)
   doc.setFont('helvetica', 'bold');
