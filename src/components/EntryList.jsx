@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { Edit2, Trash2, Check, Download, FileText, ChevronDown, ChevronUp, Search, Calendar } from 'lucide-react';
+import { Edit2, Trash2, Check, Download, FileText, ChevronDown, ChevronUp, Search, Calendar, FileSpreadsheet } from 'lucide-react';
+import { generateTimesheetCSV, generateTimesheetPDF } from '../utils/reportGenerator';
 
-export default function EntryList({ entries, clients, onDeleteEntry, onEditEntry, onUpdateStatus, onGenerateInvoice }) {
+export default function EntryList({ entries, clients, userProfile, onDeleteEntry, onEditEntry, onUpdateStatus, onGenerateInvoice, onGenerateBatchInvoice }) {
   const [filterClient, setFilterClient] = useState('');
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [filterCategory, setFilterCategory] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterStartDate, setFilterStartDate] = useState('');
@@ -118,7 +120,6 @@ export default function EntryList({ entries, clients, onDeleteEntry, onEditEntry
   };
 
   const handleInvoiceRequest = () => {
-    // We can only generate an invoice for selected entries, OR if none selected, all filtered entries.
     const targetEntries = selectedIds.length > 0 
       ? entries.filter(e => selectedIds.includes(e.id))
       : filteredEntries;
@@ -128,15 +129,13 @@ export default function EntryList({ entries, clients, onDeleteEntry, onEditEntry
       return;
     }
 
-    // Verify all belong to the same client
     const clientIds = new Set(targetEntries.map(e => e.clientId));
     if (clientIds.size > 1) {
-      alert("Invoice generation requires all selected entries to belong to the SAME client. Please filter by a single client first.");
-      return;
+      onGenerateBatchInvoice(targetEntries);
+    } else {
+      const clientId = Array.from(clientIds)[0];
+      onGenerateInvoice(clientId, targetEntries);
     }
-
-    const clientId = Array.from(clientIds)[0];
-    onGenerateInvoice(clientId, targetEntries);
   };
 
   const getSortIcon = (field) => {
@@ -249,6 +248,51 @@ export default function EntryList({ entries, clients, onDeleteEntry, onEditEntry
           >
             <FileText size={16} /> Generate Invoice PDF
           </button>
+
+          {/* Export logs dropdown */}
+          <div style={{ position: 'relative' }}>
+            <button 
+              className="btn btn-secondary btn-sm" 
+              onClick={() => setShowExportDropdown(!showExportDropdown)}
+              disabled={filteredEntries.length === 0}
+              style={{ padding: '0.5rem 1.1rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+            >
+              <Download size={16} /> Export Logs <ChevronDown size={14} />
+            </button>
+            
+            {showExportDropdown && (
+              <>
+                <div 
+                  style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 998 }} 
+                  onClick={() => setShowExportDropdown(false)} 
+                />
+                <div className="export-dropdown" style={{ position: 'absolute', top: '100%', left: 0, marginTop: '0.5rem', backgroundColor: 'var(--bg-sidebar)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0.5rem 0', display: 'flex', flexDirection: 'column', width: '220px', zIndex: 999, boxShadow: 'var(--shadow-lg)' }}>
+                  <button 
+                    className="export-dropdown-item"
+                    onClick={() => {
+                      const targets = selectedIds.length > 0 ? entries.filter(e => selectedIds.includes(e.id)) : filteredEntries;
+                      generateTimesheetCSV(userProfile, targets, clients);
+                      setShowExportDropdown(false);
+                    }}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-primary)', padding: '0.6rem 1rem', textAlign: 'left', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  >
+                    <FileSpreadsheet size={16} style={{ color: '#10b981' }} /> Export as CSV (Excel)
+                  </button>
+                  <button 
+                    className="export-dropdown-item"
+                    onClick={() => {
+                      const targets = selectedIds.length > 0 ? entries.filter(e => selectedIds.includes(e.id)) : filteredEntries;
+                      generateTimesheetPDF(userProfile, targets, clients);
+                      setShowExportDropdown(false);
+                    }}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-primary)', padding: '0.6rem 1rem', textAlign: 'left', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  >
+                    <FileText size={16} style={{ color: 'var(--color-primary)' }} /> Export Timesheet PDF
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Aggregate panel */}

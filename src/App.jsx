@@ -80,6 +80,14 @@ export default function App() {
   const [invoiceDueDate, setInvoiceDueDate] = useState('');
   const [invoiceTaxRate, setInvoiceTaxRate] = useState(0);
 
+  // Batch Invoicing Modal States
+  const [batchInvoiceModalOpen, setBatchInvoiceModalOpen] = useState(false);
+  const [batchInvoiceGroups, setBatchInvoiceGroups] = useState([]);
+  const [batchStartingNumber, setBatchStartingNumber] = useState('');
+  const [batchDate, setBatchDate] = useState('');
+  const [batchDueDate, setBatchDueDate] = useState('');
+  const [batchTaxRate, setBatchTaxRate] = useState(0);
+
   const isPopout = window.location.search.includes('popout=true');
 
   // Initialize Auth & Theme on mount
@@ -653,6 +661,117 @@ export default function App() {
     alert(`Invoice ${invoiceNumber} downloaded and entries updated successfully!`);
   };
 
+  const handleInitBatchInvoice = (selectedTimeEntries) => {
+    const entriesByClient = selectedTimeEntries.reduce((acc, entry) => {
+      if (!acc[entry.clientId]) {
+        acc[entry.clientId] = [];
+      }
+      acc[entry.clientId].push(entry);
+      return acc;
+    }, {});
+
+    const groups = Object.keys(entriesByClient).map(clientId => {
+      const client = clients.find(c => c.id === clientId);
+      return {
+        client: client || { id: clientId, name: 'Unknown Client' },
+        entries: entriesByClient[clientId]
+      };
+    });
+
+    setBatchInvoiceGroups(groups);
+
+    const year = new Date().getFullYear();
+    const billedCount = entries.filter(e => e.invoiceNumber).length;
+    setBatchStartingNumber(`INV-${year}-${String(billedCount + 1).padStart(3, '0')}`);
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    setBatchDate(todayStr);
+
+    const due = new Date();
+    due.setDate(due.getDate() + 14);
+    setBatchDueDate(due.toISOString().split('T')[0]);
+    setBatchTaxRate(userProfile.taxRate || 0);
+
+    setBatchInvoiceModalOpen(true);
+  };
+
+  const handleGenerateBatchInvoices = async (e) => {
+    e.preventDefault();
+
+    if (!batchStartingNumber.trim()) {
+      alert("Starting Invoice Number is required.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const match = batchStartingNumber.trim().match(/^(.*?)(\d+)$/);
+      let prefix = batchStartingNumber.trim();
+      let startNum = 1;
+      let padLen = 0;
+
+      if (match) {
+        prefix = match[1];
+        startNum = parseInt(match[2], 10);
+        padLen = match[2].length;
+      }
+
+      for (let i = 0; i < batchInvoiceGroups.length; i++) {
+        const { client, entries: groupEntries } = batchInvoiceGroups[i];
+        const currentInvNum = `${prefix}${String(startNum + i).padStart(padLen, '0')}`;
+        
+        await generateInvoicePDF(userProfile, client, groupEntries, {
+          invoiceNumber: currentInvNum,
+          invoiceDate: batchDate,
+          dueDate: batchDueDate,
+          taxRate: batchTaxRate
+        });
+
+        const invoiceIds = groupEntries.map(entry => entry.id);
+        if (isAmplifyConfigured) {
+          await Promise.all(invoiceIds.map(id => dataClient.models.TimeEntry.update({
+            id,
+            status: 'Billed',
+            invoiceNumber: currentInvNum
+          })));
+        } else {
+          const localEntries = getLocalEntries(currentUser.id);
+          const updatedLocal = localEntries.map(le => {
+            if (invoiceIds.includes(le.id)) {
+              return {
+                ...le,
+                status: 'Billed',
+                invoiceNumber: currentInvNum
+              };
+            }
+            return le;
+          });
+          saveLocalEntries(currentUser.id, updatedLocal);
+        }
+      }
+
+      if (isAmplifyConfigured) {
+        const { data } = await dataClient.models.TimeEntry.list();
+        const sorted = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
+        setEntries(sorted);
+      } else {
+        const localData = getLocalEntries(currentUser.id);
+        const sorted = [...localData].sort((a, b) => new Date(b.date) - new Date(a.date));
+        setEntries(sorted);
+      }
+
+      setBatchInvoiceModalOpen(false);
+      setBatchInvoiceGroups([]);
+      alert(`Successfully generated and downloaded ${batchInvoiceGroups.length} invoices!`);
+    } catch (err) {
+      console.error("Batch invoicing failed:", err);
+      alert("An error occurred during batch invoice generation.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Wait until auth is checked
   if (!authInitialized) {
     return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0b0f19', color: '#fff' }}>Loading Tempo...</div>;
@@ -862,10 +981,12 @@ export default function App() {
             <EntryList 
               entries={entries} 
               clients={clients} 
+              userProfile={userProfile}
               onDeleteEntry={handleDeleteEntry}
               onEditEntry={(entry) => setEditingEntry(entry)}
               onUpdateStatus={handleUpdateStatus}
               onGenerateInvoice={handleInitInvoice}
+              onGenerateBatchInvoice={handleInitBatchInvoice}
             />
           )}
 
@@ -1011,6 +1132,101 @@ export default function App() {
               </button>
               <button type="submit" className="btn btn-primary">
                 Confirm & Download Invoice
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* --- Overlay Modal: Batch Invoice Metadata Form & Summary --- */}
+      {batchInvoiceModalOpen && batchInvoiceGroups.length > 0 && (
+        <div className="modal-overlay">
+          <form className="modal-content" onSubmit={handleGenerateBatchInvoices} style={{ maxWidth: '650px' }}>
+            <div className="modal-header">
+              <h2 className="modal-title">Configure Batch Invoicing</h2>
+              <button type="button" className="modal-close-btn" onClick={() => setBatchInvoiceModalOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>
+                  Clients to Invoice in this Batch ({batchInvoiceGroups.length}):
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0.75rem' }}>
+                  {batchInvoiceGroups.map((g, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', borderBottom: idx < batchInvoiceGroups.length - 1 ? '1px dashed var(--border-color)' : 'none', paddingBottom: idx < batchInvoiceGroups.length - 1 ? '0.4rem' : '0', paddingTop: idx > 0 ? '0.4rem' : '0' }}>
+                      <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{g.client.name}</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>
+                        {g.entries.length} entries &bull; {g.entries.reduce((sum, e) => sum + e.duration, 0).toFixed(2)} hrs
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label>Starting Invoice Number *</label>
+                  <input 
+                    type="text" 
+                    className="input-field" 
+                    value={batchStartingNumber} 
+                    onChange={(e) => setBatchStartingNumber(e.target.value)} 
+                    placeholder="e.g. INV-2026-001"
+                    required 
+                  />
+                  <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
+                    Numbers will auto-increment sequentially for each client.
+                  </small>
+                </div>
+
+                <div className="form-group">
+                  <label>Tax Rate (%)</label>
+                  <input 
+                    type="number" 
+                    className="input-field" 
+                    min="0" 
+                    max="100" 
+                    step="0.01" 
+                    value={batchTaxRate} 
+                    onChange={(e) => setBatchTaxRate(e.target.value)} 
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label>Issue Date</label>
+                  <input 
+                    type="date" 
+                    className="input-field" 
+                    value={batchDate} 
+                    onChange={(e) => setBatchDate(e.target.value)} 
+                    required 
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Due Date</label>
+                  <input 
+                    type="date" 
+                    className="input-field" 
+                    value={batchDueDate} 
+                    onChange={(e) => setBatchDueDate(e.target.value)} 
+                    required 
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setBatchInvoiceModalOpen(false)}>
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary">
+                Generate Invoices ({batchInvoiceGroups.length})
               </button>
             </div>
           </form>

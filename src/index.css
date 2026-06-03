@@ -1053,3 +1053,29 @@ body {
     line-height: 1.4;
   }
 }
+
+/* Export Dropdown Styles */
+.export-dropdown {
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  animation: fadeIn 0.15s ease-out;
+}
+
+.export-dropdown-item {
+  transition: var(--transition-smooth);
+}
+
+.export-dropdown-item:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
