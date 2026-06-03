@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { User, ShieldAlert, Download, Upload } from 'lucide-react';
+import { User, ShieldAlert, Download, Upload, Trash2 } from 'lucide-react';
 import { exportBackup, importBackup } from '../utils/storage';
 
-export default function ProfileMgr({ userProfile, onUpdateProfile, onStateChange }) {
+export default function ProfileMgr({ userProfile, onUpdateProfile, onDeleteAccount }) {
   const [name, setName] = useState(userProfile.name || '');
   const [email, setEmail] = useState(userProfile.email || '');
   const [company, setCompany] = useState(userProfile.company || '');
   const [address, setAddress] = useState(userProfile.address || '');
   const [paymentDetails, setPaymentDetails] = useState(userProfile.paymentDetails || '');
   const [taxRate, setTaxRate] = useState(userProfile.taxRate || 0);
+
+  const [deleteConfirm, setDeleteConfirm] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -51,6 +53,12 @@ export default function ProfileMgr({ userProfile, onUpdateProfile, onStateChange
       }
     };
     fileReader.readAsText(file);
+  };
+
+  const handleDeleteAccountClick = () => {
+    if (deleteConfirm === 'DELETE') {
+      onDeleteAccount();
+    }
   };
 
   return (
@@ -142,8 +150,9 @@ export default function ProfileMgr({ userProfile, onUpdateProfile, onStateChange
         </div>
       </form>
 
-      {/* Backup and Import utilities card */}
+      {/* Right Column: Backup and Danger Zone */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        {/* Backup Card */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <ShieldAlert size={20} style={{ color: 'var(--color-primary)' }} />
@@ -151,7 +160,7 @@ export default function ProfileMgr({ userProfile, onUpdateProfile, onStateChange
           </div>
           
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            All your client rates and logged hours are saved locally in your browser cache. Backup your work periodically or migrate your data to another device.
+            Your account database is securely stored in AWS cloud services (Cognito / DynamoDB). You can export a JSON backup file for offline records or manual portability.
           </p>
 
           <button className="btn btn-secondary" onClick={handleExport} style={{ justifyContent: 'flex-start' }}>
@@ -170,6 +179,50 @@ export default function ProfileMgr({ userProfile, onUpdateProfile, onStateChange
               />
             </label>
           </div>
+        </div>
+
+        {/* Danger Zone Card */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid rgba(239, 68, 68, 0.25)', backgroundColor: 'rgba(239, 68, 68, 0.02)' }}>
+          <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <ShieldAlert size={20} style={{ color: '#ef4444' }} />
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#ef4444' }}>Danger Zone</h2>
+          </div>
+          
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            Permanently delete your user credentials and all associated client sheets, invoices, settings, and logs. This action is immediate and cannot be undone.
+          </p>
+
+          <div className="form-group" style={{ marginBottom: '0.25rem' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 500 }}>Type <strong style={{ color: '#ef4444' }}>DELETE</strong> to confirm:</label>
+            <input 
+              type="text" 
+              className="input-field" 
+              style={{ padding: '0.5rem 0.75rem', borderColor: deleteConfirm === 'DELETE' ? '#ef4444' : 'var(--border-color)', color: deleteConfirm === 'DELETE' ? '#ef4444' : 'var(--text-primary)' }}
+              placeholder="DELETE"
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+            />
+          </div>
+
+          <button 
+            className="btn" 
+            onClick={handleDeleteAccountClick}
+            disabled={deleteConfirm !== 'DELETE'}
+            style={{ 
+              backgroundColor: deleteConfirm === 'DELETE' ? '#ef4444' : 'rgba(239, 68, 68, 0.08)', 
+              color: deleteConfirm === 'DELETE' ? '#fff' : 'rgba(239, 68, 68, 0.4)',
+              cursor: deleteConfirm === 'DELETE' ? 'pointer' : 'not-allowed',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              fontWeight: 600,
+              padding: '0.6rem'
+            }}
+          >
+            <Trash2 size={16} /> Delete Account Permanently
+          </button>
         </div>
       </div>
     </div>

@@ -17,7 +17,7 @@ This document tracks the feature roadmap, active task list, completed milestones
 | **User Sign-up & Login** | Gated sessions and local-first namespaced data isolation | ✅ Completed | v1.1.0 |
 | **Inline Category Modifying** | Rename categories inline with cascading updates to logs | ✅ Completed | v1.2.0 |
 | **Pop-out Timer Window** | Standalone popout tracker window with cross-tab sync | ✅ Completed | v1.3.0 |
-| **Cloud Database Sync** | Server sync using Firebase / Supabase for cross-device access | 📋 Planned | v2.0.0 |
+| **Cloud Database Sync** | Server sync using AWS Amplify Gen 2 for persistent cloud storage and cross-device sync | ✅ Completed | v1.4.0 |
 | **Invoice Email Integration** | Send PDF invoices directly to client emails from the app | 📋 Planned | v2.1.0 |
 | **Timer Idle Detection** | Prompt user to discard or resume if timer runs but no keyboard/mouse activity is detected | 📋 Planned | v2.2.0 |
 
@@ -33,6 +33,14 @@ This document tracks the feature roadmap, active task list, completed milestones
 ---
 
 ## 📜 Changelog
+
+### [v1.4.0] - 2026-06-03
+#### Added
+* Migrated state synchronization and data storage from local browser storage to **AWS Amplify Gen 2** backend cloud infrastructure.
+* Provisioned Cognito User Pools for email-based authentication and secure session management.
+* Configured owner-isolated DynamoDB storage via AWS AppSync GraphQL endpoints for `Client`, `Category`, `TimeEntry`, and `UserProfile` records.
+* Created a resilient frontend data synchronization architecture with dynamic fallback for offline local-first previews.
+* Implemented a secure "Delete Account" flow under User Profile settings, executing complete cascading deletions across Cognito user pools and user-associated cloud tables.
 
 ### [v1.3.2] - 2026-06-03
 #### Added

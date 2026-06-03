@@ -24,27 +24,37 @@ import CategoryMgr from './components/CategoryMgr';
 import Analytics from './components/Analytics';
 import ProfileMgr from './components/ProfileMgr';
 
+// Local Storage Fallback Helpers
 import { 
-  getCurrentUser,
-  saveCurrentUser,
-  getClients, 
-  saveClients, 
-  getCategories, 
-  saveCategories, 
-  getEntries, 
-  saveEntries, 
-  getUserProfile, 
-  saveUserProfile, 
+  getCurrentUser as getLocalCurrentUser,
+  saveCurrentUser as saveLocalCurrentUser,
+  getClients as getLocalClients, 
+  saveClients as saveLocalClients, 
+  getCategories as getLocalCategories, 
+  saveCategories as saveLocalCategories, 
+  getEntries as getLocalEntries, 
+  saveEntries as saveLocalEntries, 
+  getUserProfile as getLocalUserProfile, 
+  saveUserProfile as saveLocalUserProfile, 
   getTheme, 
   saveTheme 
 } from './utils/storage';
 
 import { generateInvoicePDF } from './utils/pdfGenerator';
 
+// Amplify Libraries
+import { generateClient } from 'aws-amplify/data';
+import { signOut, deleteUser, getCurrentUser as getCognitoUser } from 'aws-amplify/auth';
+import outputs from '../amplify_outputs.json';
+
+const isAmplifyConfigured = outputs && Object.keys(outputs).length > 0;
+const dataClient = isAmplifyConfigured ? generateClient() : null;
+
 export default function App() {
   // Authentication State
   const [currentUser, setCurrentUser] = useState(null);
   const [authInitialized, setAuthInitialized] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // App States
   const [clients, setClients] = useState([]);
@@ -72,11 +82,25 @@ export default function App() {
 
   // Initialize Auth & Theme on mount
   useEffect(() => {
-    const user = getCurrentUser();
-    if (user) {
-      setCurrentUser(user);
-    }
-    setAuthInitialized(true);
+    const initAuth = async () => {
+      if (isAmplifyConfigured) {
+        try {
+          const user = await getCognitoUser();
+          setCurrentUser(user);
+        } catch (e) {
+          // No active Cognito session
+          setCurrentUser(null);
+        }
+      } else {
+        const user = getLocalCurrentUser();
+        if (user) {
+          setCurrentUser(user);
+        }
+      }
+      setAuthInitialized(true);
+    };
+
+    initAuth();
 
     const savedTheme = getTheme();
     setTheme(savedTheme);
@@ -85,46 +109,96 @@ export default function App() {
 
   // Sync data when currentUser changes
   useEffect(() => {
-    if (currentUser) {
-      setClients(getClients(currentUser.id));
-      setCategories(getCategories(currentUser.id));
-      setEntries(getEntries(currentUser.id));
-      
-      const profile = getUserProfile(currentUser.id);
-      setUserProfile(profile);
-      setInvoiceTaxRate(profile.taxRate || 0);
-    } else {
-      setClients([]);
-      setCategories([]);
-      setEntries([]);
-      setUserProfile({});
-      setInvoiceTaxRate(0);
-    }
+    const syncData = async () => {
+      if (!currentUser) {
+        setClients([]);
+        setCategories([]);
+        setEntries([]);
+        setUserProfile({});
+        setInvoiceTaxRate(0);
+        return;
+      }
+
+      if (isAmplifyConfigured) {
+        setLoading(true);
+        try {
+          // 1. Fetch Clients
+          const { data: clientsData } = await dataClient.models.Client.list();
+          setClients(clientsData);
+
+          // 2. Fetch Categories (Seed defaults if empty)
+          const { data: categoriesData } = await dataClient.models.Category.list();
+          if (categoriesData.length === 0) {
+            const seedCats = ['Software Development', 'UI/UX Design', 'Technical Consulting', 'Project Management', 'QA & Testing', 'Code Review'];
+            await Promise.all(seedCats.map(name => dataClient.models.Category.create({ name })));
+            const { data: refetchedCats } = await dataClient.models.Category.list();
+            setCategories(refetchedCats.map(c => c.name));
+          } else {
+            setCategories(categoriesData.map(c => c.name));
+          }
+
+          // 3. Fetch Entries
+          const { data: entriesData } = await dataClient.models.TimeEntry.list();
+          // Sort by date descending locally for best visual layout
+          const sortedEntries = [...entriesData].sort((a, b) => new Date(b.date) - new Date(a.date));
+          setEntries(sortedEntries);
+
+          // 4. Fetch User Profile (Seed defaults if empty)
+          const { data: profileData } = await dataClient.models.UserProfile.list();
+          if (profileData.length === 0) {
+            const defaultName = currentUser.username.split('@')[0] || 'Developer';
+            const { data: newProfile } = await dataClient.models.UserProfile.create({
+              name: defaultName,
+              email: currentUser.username || '',
+              company: '',
+              address: '',
+              paymentDetails: '',
+              taxRate: 0
+            });
+            setUserProfile(newProfile);
+            setInvoiceTaxRate(0);
+          } else {
+            setUserProfile(profileData[0]);
+            setInvoiceTaxRate(profileData[0].taxRate || 0);
+          }
+        } catch (err) {
+          console.error("Amplify data fetch error:", err);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        // Local fallback
+        setClients(getLocalClients(currentUser.id));
+        setCategories(getLocalCategories(currentUser.id));
+        setEntries(getLocalEntries(currentUser.id));
+        
+        const profile = getLocalUserProfile(currentUser.id);
+        setUserProfile(profile);
+        setInvoiceTaxRate(profile.taxRate || 0);
+      }
+    };
+
+    syncData();
   }, [currentUser]);
 
-  // Synchronize state across tabs and pop-out windows
+  // Synchronize LocalStorage state across tabs (only in fallback mode)
   useEffect(() => {
+    if (isAmplifyConfigured || !currentUser) return;
+
     const handleStorageChange = (e) => {
-      if (!currentUser) return;
-      
-      // Sync entries
       if (e.key === `tempo_entries_${currentUser.id}`) {
-        setEntries(getEntries(currentUser.id));
+        setEntries(getLocalEntries(currentUser.id));
       }
-      // Sync clients
       if (e.key === `tempo_clients_${currentUser.id}`) {
-        setClients(getClients(currentUser.id));
+        setClients(getLocalClients(currentUser.id));
       }
-      // Sync categories
       if (e.key === `tempo_categories_${currentUser.id}`) {
-        setCategories(getCategories(currentUser.id));
+        setCategories(getLocalCategories(currentUser.id));
       }
-      // Sync current user session
       if (e.key === 'tempo_current_user') {
-        const user = getCurrentUser();
+        const user = getLocalCurrentUser();
         setCurrentUser(user);
       }
-      // Sync theme
       if (e.key === 'tempo_theme') {
         const savedTheme = getTheme();
         setTheme(savedTheme);
@@ -150,108 +224,263 @@ export default function App() {
     setActiveTab('dashboard');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (window.confirm("Are you sure you want to log out?")) {
-      saveCurrentUser(null);
+      if (isAmplifyConfigured) {
+        await signOut();
+      } else {
+        saveLocalCurrentUser(null);
+      }
       setCurrentUser(null);
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (window.confirm("ARE YOU ABSOLUTELY SURE? This will permanently delete all your data and Cognito login credentials. This cannot be undone!")) {
+      setLoading(true);
+      try {
+        if (isAmplifyConfigured) {
+          // 1. Delete all user-associated DynamoDB objects
+          const deleteClients = clients.map(c => dataClient.models.Client.delete({ id: c.id }));
+          const deleteEntries = entries.map(e => dataClient.models.TimeEntry.delete({ id: e.id }));
+          
+          const { data: catsList } = await dataClient.models.Category.list();
+          const deleteCats = catsList.map(c => dataClient.models.Category.delete({ id: c.id }));
+          const deleteProfile = dataClient.models.UserProfile.delete({ id: userProfile.id });
+
+          await Promise.all([...deleteClients, ...deleteEntries, ...deleteCats, deleteProfile]);
+
+          // 2. Delete Cognito Authentication Account
+          await deleteUser();
+        } else {
+          // Local fallback delete
+          localStorage.removeItem(`tempo_clients_${currentUser.id}`);
+          localStorage.removeItem(`tempo_categories_${currentUser.id}`);
+          localStorage.removeItem(`tempo_entries_${currentUser.id}`);
+          localStorage.removeItem(`tempo_user_profile_${currentUser.id}`);
+          
+          const users = JSON.parse(localStorage.getItem('tempo_users')) || [];
+          const updatedUsers = users.filter(u => u.id !== currentUser.id);
+          localStorage.setItem('tempo_users', JSON.stringify(updatedUsers));
+          saveLocalCurrentUser(null);
+        }
+        
+        setCurrentUser(null);
+        alert("Your account has been deleted permanently.");
+      } catch (err) {
+        console.error("Account deletion error:", err);
+        alert("Failed to delete account: " + err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   // --- Clients CRUD Handlers ---
-  const handleAddClient = (newClient) => {
-    const payload = {
-      ...newClient,
-      id: `client-${Date.now()}`
-    };
-    const updated = [...clients, payload];
-    setClients(updated);
-    saveClients(currentUser.id, updated);
+  const handleAddClient = async (newClient) => {
+    if (isAmplifyConfigured) {
+      const { data } = await dataClient.models.Client.create({
+        name: newClient.name,
+        email: newClient.email,
+        defaultRate: newClient.defaultRate,
+        address: newClient.address,
+        notes: newClient.notes
+      });
+      setClients([...clients, data]);
+    } else {
+      const payload = { ...newClient, id: `client-${Date.now()}` };
+      const updated = [...clients, payload];
+      setClients(updated);
+      saveLocalClients(currentUser.id, updated);
+    }
   };
 
-  const handleUpdateClient = (id, updatedDetails) => {
-    const updated = clients.map(c => c.id === id ? { ...c, ...updatedDetails } : c);
-    setClients(updated);
-    saveClients(currentUser.id, updated);
+  const handleUpdateClient = async (id, updatedDetails) => {
+    if (isAmplifyConfigured) {
+      const { data } = await dataClient.models.Client.update({
+        id,
+        ...updatedDetails
+      });
+      setClients(clients.map(c => c.id === id ? data : c));
+    } else {
+      const updated = clients.map(c => c.id === id ? { ...c, ...updatedDetails } : c);
+      setClients(updated);
+      saveLocalClients(currentUser.id, updated);
+    }
   };
 
-  const handleDeleteClient = (id) => {
-    const updated = clients.filter(c => c.id !== id);
-    setClients(updated);
-    saveClients(currentUser.id, updated);
+  const handleDeleteClient = async (id) => {
+    if (isAmplifyConfigured) {
+      await dataClient.models.Client.delete({ id });
+      setClients(clients.filter(c => c.id !== id));
+    } else {
+      const updated = clients.filter(c => c.id !== id);
+      setClients(updated);
+      saveLocalClients(currentUser.id, updated);
+    }
   };
 
   // --- Categories CRUD Handlers ---
-  const handleAddCategory = (newCat) => {
-    const updated = [...categories, newCat];
-    setCategories(updated);
-    saveCategories(currentUser.id, updated);
-  };
-
-  const handleDeleteCategory = (catToDelete) => {
-    const updated = categories.filter(c => c !== catToDelete);
-    setCategories(updated);
-    saveCategories(currentUser.id, updated);
-  };
-
-  const handleUpdateCategory = (oldCatName, newCatName) => {
-    const updatedCats = categories.map(c => c === oldCatName ? newCatName : c);
-    setCategories(updatedCats);
-    saveCategories(currentUser.id, updatedCats);
-
-    const updatedEntries = entries.map(e => e.category === oldCatName ? { ...e, category: newCatName } : e);
-    setEntries(updatedEntries);
-    saveEntries(currentUser.id, updatedEntries);
-  };
-
-  // --- Entries CRUD Handlers ---
-  const handleSaveEntry = (entryPayload) => {
-    let updated;
-    if (entryPayload.id) {
-      // Editing
-      updated = entries.map(e => e.id === entryPayload.id ? { ...e, ...entryPayload } : e);
-      setEditingEntry(null);
+  const handleAddCategory = async (newCat) => {
+    if (isAmplifyConfigured) {
+      const { data } = await dataClient.models.Category.create({ name: newCat });
+      setCategories([...categories, data.name]);
     } else {
-      // New Entry
-      const newEntry = {
-        ...entryPayload,
-        id: `entry-${Date.now()}`
-      };
-      updated = [newEntry, ...entries];
-      setIsManualLogModalOpen(false);
-    }
-    setEntries(updated);
-    saveEntries(currentUser.id, updated);
-  };
-
-  const handleDeleteEntry = (id) => {
-    if (window.confirm("Are you sure you want to delete this time entry?")) {
-      const updated = entries.filter(e => e.id !== id);
-      setEntries(updated);
-      saveEntries(currentUser.id, updated);
+      const updated = [...categories, newCat];
+      setCategories(updated);
+      saveLocalCategories(currentUser.id, updated);
     }
   };
 
-  const handleUpdateStatus = (ids, nextStatus) => {
-    const updated = entries.map(e => {
-      if (ids.includes(e.id)) {
-        const updatedEntry = { ...e, status: nextStatus };
-        // If status changed away from Billed, strip invoice details
-        if (nextStatus !== 'Billed') {
-          delete updatedEntry.invoiceNumber;
-        }
-        return updatedEntry;
+  const handleDeleteCategory = async (catToDelete) => {
+    if (isAmplifyConfigured) {
+      const { data: catsList } = await dataClient.models.Category.list();
+      const item = catsList.find(c => c.name === catToDelete);
+      if (item) {
+        await dataClient.models.Category.delete({ id: item.id });
       }
-      return e;
-    });
-    setEntries(updated);
-    saveEntries(currentUser.id, updated);
+      setCategories(categories.filter(c => c !== catToDelete));
+    } else {
+      const updated = categories.filter(c => c !== catToDelete);
+      setCategories(updated);
+      saveLocalCategories(currentUser.id, updated);
+    }
+  };
+
+  const handleUpdateCategory = async (oldCatName, newCatName) => {
+    if (isAmplifyConfigured) {
+      const { data: catsList } = await dataClient.models.Category.list();
+      const item = catsList.find(c => c.name === oldCatName);
+      if (item) {
+        await dataClient.models.Category.update({ id: item.id, name: newCatName });
+      }
+      setCategories(categories.map(c => c === oldCatName ? newCatName : c));
+
+      // Cascade update to entries in DynamoDB
+      const entriesToUpdate = entries.filter(e => e.category === oldCatName);
+      await Promise.all(entriesToUpdate.map(e => dataClient.models.TimeEntry.update({ id: e.id, category: newCatName })));
+      
+      const { data: refetchedEntries } = await dataClient.models.TimeEntry.list();
+      const sorted = [...refetchedEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+      setEntries(sorted);
+    } else {
+      const updatedCats = categories.map(c => c === oldCatName ? newCatName : c);
+      setCategories(updatedCats);
+      saveLocalCategories(currentUser.id, updatedCats);
+
+      const updatedEntries = entries.map(e => e.category === oldCatName ? { ...e, category: newCatName } : e);
+      setEntries(updatedEntries);
+      saveLocalEntries(currentUser.id, updatedEntries);
+    }
+  };
+
+  // --- Time Entries CRUD Handlers ---
+  const handleSaveEntry = async (entryPayload) => {
+    if (isAmplifyConfigured) {
+      if (entryPayload.id) {
+        const { data } = await dataClient.models.TimeEntry.update({
+          id: entryPayload.id,
+          clientId: entryPayload.clientId,
+          category: entryPayload.category,
+          duration: entryPayload.duration,
+          rate: entryPayload.rate,
+          date: entryPayload.date,
+          description: entryPayload.description,
+          status: entryPayload.status,
+          invoiceNumber: entryPayload.invoiceNumber || null
+        });
+        setEntries(entries.map(e => e.id === entryPayload.id ? data : e));
+        setEditingEntry(null);
+      } else {
+        const { data } = await dataClient.models.TimeEntry.create({
+          clientId: entryPayload.clientId,
+          category: entryPayload.category,
+          duration: entryPayload.duration,
+          rate: entryPayload.rate,
+          date: entryPayload.date,
+          description: entryPayload.description || 'Timer log entry',
+          status: entryPayload.status,
+          invoiceNumber: null
+        });
+        setEntries([data, ...entries]);
+        setIsManualLogModalOpen(false);
+      }
+    } else {
+      let updated;
+      if (entryPayload.id) {
+        updated = entries.map(e => e.id === entryPayload.id ? { ...e, ...entryPayload } : e);
+        setEditingEntry(null);
+      } else {
+        const newEntry = { ...entryPayload, id: `entry-${Date.now()}` };
+        updated = [newEntry, ...entries];
+        setIsManualLogModalOpen(false);
+      }
+      setEntries(updated);
+      saveLocalEntries(currentUser.id, updated);
+    }
+  };
+
+  const handleDeleteEntry = async (id) => {
+    if (window.confirm("Are you sure you want to delete this time entry?")) {
+      if (isAmplifyConfigured) {
+        await dataClient.models.TimeEntry.delete({ id });
+        setEntries(entries.filter(e => e.id !== id));
+      } else {
+        const updated = entries.filter(e => e.id !== id);
+        setEntries(updated);
+        saveLocalEntries(currentUser.id, updated);
+      }
+    }
+  };
+
+  const handleUpdateStatus = async (ids, nextStatus) => {
+    if (isAmplifyConfigured) {
+      await Promise.all(ids.map(id => {
+        const entry = entries.find(e => e.id === id);
+        const patch = { id, status: nextStatus };
+        if (nextStatus !== 'Billed' && entry && entry.invoiceNumber) {
+          patch.invoiceNumber = null;
+        }
+        return dataClient.models.TimeEntry.update(patch);
+      }));
+      const { data } = await dataClient.models.TimeEntry.list();
+      const sorted = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
+      setEntries(sorted);
+    } else {
+      const updated = entries.map(e => {
+        if (ids.includes(e.id)) {
+          const updatedEntry = { ...e, status: nextStatus };
+          if (nextStatus !== 'Billed') {
+            delete updatedEntry.invoiceNumber;
+          }
+          return updatedEntry;
+        }
+        return e;
+      });
+      setEntries(updated);
+      saveLocalEntries(currentUser.id, updated);
+    }
   };
 
   // --- User Profile Handlers ---
-  const handleUpdateProfile = (updatedProfile) => {
-    setUserProfile(updatedProfile);
-    saveUserProfile(currentUser.id, updatedProfile);
-    setInvoiceTaxRate(updatedProfile.taxRate || 0);
+  const handleUpdateProfile = async (updatedProfile) => {
+    if (isAmplifyConfigured) {
+      const { data } = await dataClient.models.UserProfile.update({
+        id: userProfile.id,
+        name: updatedProfile.name,
+        email: updatedProfile.email,
+        company: updatedProfile.company,
+        address: updatedProfile.address,
+        paymentDetails: updatedProfile.paymentDetails,
+        taxRate: updatedProfile.taxRate
+      });
+      setUserProfile(data);
+      setInvoiceTaxRate(data.taxRate || 0);
+    } else {
+      setUserProfile(updatedProfile);
+      saveLocalUserProfile(currentUser.id, updatedProfile);
+      setInvoiceTaxRate(updatedProfile.taxRate || 0);
+    }
   };
 
   // --- Invoicing Flow ---
@@ -281,7 +510,7 @@ export default function App() {
     setInvoiceModalOpen(true);
   };
 
-  const handleGenerateInvoicePDF = (e) => {
+  const handleGenerateInvoicePDF = async (e) => {
     e.preventDefault();
 
     if (!invoiceNumber.trim()) {
@@ -297,21 +526,31 @@ export default function App() {
       taxRate: invoiceTaxRate
     });
 
-    // 2. Mark entries as billed
+    // 2. Mark entries as billed in database
     const invoiceIds = invoiceEntries.map(entry => entry.id);
-    const updatedEntries = entries.map(e => {
-      if (invoiceIds.includes(e.id)) {
-        return {
-          ...e,
-          status: 'Billed',
-          invoiceNumber: invoiceNumber.trim()
-        };
-      }
-      return e;
-    });
-    
-    setEntries(updatedEntries);
-    saveEntries(currentUser.id, updatedEntries);
+    if (isAmplifyConfigured) {
+      await Promise.all(invoiceIds.map(id => dataClient.models.TimeEntry.update({
+        id,
+        status: 'Billed',
+        invoiceNumber: invoiceNumber.trim()
+      })));
+      const { data } = await dataClient.models.TimeEntry.list();
+      const sorted = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
+      setEntries(sorted);
+    } else {
+      const updatedEntries = entries.map(e => {
+        if (invoiceIds.includes(e.id)) {
+          return {
+            ...e,
+            status: 'Billed',
+            invoiceNumber: invoiceNumber.trim()
+          };
+        }
+        return e;
+      });
+      setEntries(updatedEntries);
+      saveLocalEntries(currentUser.id, updatedEntries);
+    }
 
     // 3. Reset Modal
     setInvoiceModalOpen(false);
@@ -333,10 +572,11 @@ export default function App() {
 
   // Render ONLY the Timer Component if page is opened in Popout Mode
   if (isPopout) {
+    const userIdVal = isAmplifyConfigured ? currentUser.userId : currentUser.id;
     return (
       <div style={{ padding: '1rem', height: '100vh', boxSizing: 'border-box', overflow: 'hidden', backgroundColor: 'var(--bg-primary)' }}>
         <Timer 
-          userId={currentUser.id} 
+          userId={userIdVal} 
           clients={clients} 
           categories={categories} 
           onLogEntry={handleSaveEntry} 
@@ -347,6 +587,7 @@ export default function App() {
 
   // Calculate quick summary metrics
   const unbilledCount = entries.filter(e => e.status === 'Unbilled').length;
+  const userIdVal = isAmplifyConfigured ? currentUser.userId : currentUser.id;
 
   return (
     <div className="app-container">
@@ -469,6 +710,13 @@ export default function App() {
 
       {/* Main Panel Content */}
       <main className="main-content">
+        {/* Loading Overlay */}
+        {loading && (
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(11, 15, 25, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(3px)' }}>
+            <span style={{ fontSize: '1.2rem', fontWeight: 600, color: '#fff' }}>Syncing with cloud...</span>
+          </div>
+        )}
+
         {/* Header Block */}
         <header className="top-header">
           <div className="page-title">
@@ -505,7 +753,7 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
               <Dashboard entries={entries} clients={clients} />
               <div className="dashboard-grid">
-                <Timer userId={currentUser.id} clients={clients} categories={categories} onLogEntry={handleSaveEntry} />
+                <Timer userId={userIdVal} clients={clients} categories={categories} onLogEntry={handleSaveEntry} />
                 <Analytics entries={entries} clients={clients} />
               </div>
             </div>
@@ -513,7 +761,7 @@ export default function App() {
           
           {activeTab === 'timer' && (
             <div style={{ maxWidth: '750px', margin: '0 auto' }}>
-              <Timer userId={currentUser.id} clients={clients} categories={categories} onLogEntry={handleSaveEntry} />
+              <Timer userId={userIdVal} clients={clients} categories={categories} onLogEntry={handleSaveEntry} />
             </div>
           )}
           
@@ -554,6 +802,7 @@ export default function App() {
             <ProfileMgr 
               userProfile={userProfile} 
               onUpdateProfile={handleUpdateProfile} 
+              onDeleteAccount={handleDeleteAccount}
             />
           )}
         </div>
