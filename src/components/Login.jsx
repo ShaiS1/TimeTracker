@@ -66,22 +66,19 @@ export default function Login({ onLoginSuccess }) {
         animation: 'fadeIn 0.5s ease-out'
       }}>
         {/* Logo Section */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '2rem', gap: '0.5rem' }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, var(--color-primary), #ec4899)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontWeight: 'bold',
-            fontSize: '1.5rem',
-            boxShadow: '0 8px 16px -4px rgba(99, 102, 241, 0.4)'
-          }}>
-            T
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '1.5rem', gap: '0.75rem' }}>
+          <img 
+            src="/tempo_logo.png" 
+            alt="Tempo Logo" 
+            style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '14px',
+              objectFit: 'cover',
+              boxShadow: '0 8px 24px -4px rgba(99, 102, 241, 0.3)',
+              border: '1px solid rgba(255,255,255,0.08)'
+            }}
+          />
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.025em', color: 'var(--text-primary)', marginTop: '0.25rem' }}>
             Welcome to Tempo
           </h1>

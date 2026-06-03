@@ -353,7 +353,12 @@ export default function App() {
       {/* Sidebar Navigation */}
       <aside className="sidebar">
         <div className="logo-container">
-          <div className="logo-icon">T</div>
+          <img 
+            src="/tempo_logo.png" 
+            alt="Tempo" 
+            className="logo-icon" 
+            style={{ objectFit: 'cover', borderRadius: '8px', border: 'none' }}
+          />
           <span className="logo-text">Tempo</span>
         </div>
 

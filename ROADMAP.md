@@ -34,6 +34,11 @@ This document tracks the feature roadmap, active task list, completed milestones
 
 ## 📜 Changelog
 
+### [v1.3.2] - 2026-06-03
+#### Added
+* Generated a modern, minimalist gradient hourglass logo asset (`tempo_logo.png`).
+* Integrated the logo into the login/registration screen and the primary application sidebar navigation header.
+
 ### [v1.3.1] - 2026-06-03
 #### Changed
 * Customized browser tab title to "Tempo | Contract Work Time Tracker" (replacing default "Vite + React").
