@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { LogIn, UserPlus, Key, Mail, User, Clock, AlertCircle, ShieldAlert, CheckCircle } from 'lucide-react';
 import { signIn, signUp, confirmSignUp, getCurrentUser } from 'aws-amplify/auth';
+import { registerUser, loginUser } from '../utils/storage';
+import outputs from '../../amplify_outputs.json';
+
+const isAmplifyConfigured = outputs && Object.keys(outputs).length > 0;
 
 export default function Login({ onLoginSuccess }) {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -19,6 +23,50 @@ export default function Login({ onLoginSuccess }) {
     setSuccessMsg('');
 
     setLoading(true);
+
+    // Dynamic fallback to LocalStorage mock authentication
+    if (!isAmplifyConfigured) {
+      try {
+        if (isSignUp) {
+          if (!email.trim() || !password.trim() || !name.trim()) {
+            setError('All fields are required.');
+            setLoading(false);
+            return;
+          }
+          if (password.length < 6) {
+            setError('Password must be at least 6 characters long.');
+            setLoading(false);
+            return;
+          }
+          const res = registerUser(email, password, name);
+          if (res.success) {
+            setSuccessMsg('Account created successfully! Please log in now.');
+            setIsSignUp(false);
+            setPassword('');
+          } else {
+            setError(res.error || 'Registration failed.');
+          }
+        } else {
+          if (!email.trim() || !password.trim()) {
+            setError('Email and password are required.');
+            setLoading(false);
+            return;
+          }
+          const res = loginUser(email, password);
+          if (res.success) {
+            onLoginSuccess(res.user);
+          } else {
+            setError(res.error || 'Invalid credentials.');
+          }
+        }
+      } catch (err) {
+        console.error('Local auth error:', err);
+        setError('An unexpected error occurred during local authentication.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     try {
       if (needsConfirmation) {
