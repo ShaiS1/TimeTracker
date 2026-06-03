@@ -46,7 +46,7 @@ import { generateInvoicePDF } from './utils/pdfGenerator';
 
 // Amplify Libraries
 import { generateClient } from 'aws-amplify/data';
-import { signOut, deleteUser, getCurrentUser as getCognitoUser } from 'aws-amplify/auth';
+import { signOut, deleteUser, getCurrentUser as getCognitoUser, fetchUserAttributes } from 'aws-amplify/auth';
 import outputs from '../amplify_outputs.json';
 
 const isAmplifyConfigured = outputs && Object.keys(outputs).length > 0;
@@ -88,7 +88,13 @@ export default function App() {
       if (isAmplifyConfigured) {
         try {
           const user = await getCognitoUser();
-          setCurrentUser(user);
+          const attributes = await fetchUserAttributes();
+          const mergedUser = {
+            ...user,
+            email: attributes.email || '',
+            name: attributes.name || attributes.given_name || ''
+          };
+          setCurrentUser(mergedUser);
         } catch (e) {
           // No active Cognito session
           setCurrentUser(null);
@@ -148,10 +154,10 @@ export default function App() {
           // 4. Fetch User Profile (Seed defaults if empty)
           const { data: profileData } = await dataClient.models.UserProfile.list();
           if (profileData.length === 0) {
-            const defaultName = currentUser.username.split('@')[0] || 'Developer';
+            const defaultName = currentUser.name || (currentUser.email ? currentUser.email.split('@')[0] : 'Developer');
             const { data: newProfile } = await dataClient.models.UserProfile.create({
               name: defaultName,
-              email: currentUser.username || '',
+              email: currentUser.email || '',
               company: '',
               address: '',
               paymentDetails: '',
@@ -160,8 +166,32 @@ export default function App() {
             setUserProfile(newProfile);
             setInvoiceTaxRate(0);
           } else {
-            setUserProfile(profileData[0]);
-            setInvoiceTaxRate(profileData[0].taxRate || 0);
+            let currentProfile = profileData[0];
+            // Repair if name or email matches the UUID (username) and we have attributes
+            if (
+              (currentProfile.name === currentUser.username || currentProfile.email === currentUser.username) &&
+              (currentUser.name || currentUser.email)
+            ) {
+              const updatedName = currentProfile.name === currentUser.username 
+                ? (currentUser.name || (currentUser.email ? currentUser.email.split('@')[0] : 'Developer')) 
+                : currentProfile.name;
+              const updatedEmail = currentProfile.email === currentUser.username 
+                ? (currentUser.email || '') 
+                : currentProfile.email;
+              
+              try {
+                const { data: repairedProfile } = await dataClient.models.UserProfile.update({
+                  id: currentProfile.id,
+                  name: updatedName,
+                  email: updatedEmail
+                });
+                currentProfile = repairedProfile;
+              } catch (updateErr) {
+                console.error("Failed to repair UserProfile metadata:", updateErr);
+              }
+            }
+            setUserProfile(currentProfile);
+            setInvoiceTaxRate(currentProfile.taxRate || 0);
           }
         } catch (err) {
           console.error("Amplify data fetch error:", err);
@@ -239,8 +269,22 @@ export default function App() {
   };
 
   // --- Auth Handlers ---
-  const handleLoginSuccess = (user) => {
-    setCurrentUser(user);
+  const handleLoginSuccess = async (user) => {
+    if (isAmplifyConfigured) {
+      try {
+        const attributes = await fetchUserAttributes();
+        const mergedUser = {
+          ...user,
+          email: attributes.email || '',
+          name: attributes.name || attributes.given_name || ''
+        };
+        setCurrentUser(mergedUser);
+      } catch (err) {
+        setCurrentUser(user);
+      }
+    } else {
+      setCurrentUser(user);
+    }
     setActiveTab('dashboard');
   };
 
