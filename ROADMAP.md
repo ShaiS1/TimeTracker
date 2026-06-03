@@ -87,12 +87,14 @@ This document tracks the feature roadmap, active task list, completed milestones
 * **Password Reset**: Implement Cognito password recovery flows.
 * **Session Management**: Handle session timeouts, token refreshments, and logouts.
 * **Data Isolation Review**: Perform security checks on owner-based AppSync data partitions.
+* **Cognito Email Customization**: Configure custom verification and password reset email templates matching Tempo branding.
 
 ### Sprint 2: Timer Persistence & Recovery
 * **Timer Persistence**: Save active stopwatch timer state in the cloud/database.
 * **Browser Refresh Recovery**: Recover active running timers automatically after a page refresh.
 * **Session Recovery**: Seamlessly restore application state on login session resumption.
 * **Active Timer Safeguards**: Prevent accidental navigation or logging of invalid timer states.
+* **Offline-First Resilience**: Implement local mutations caching and sync to handle transient network dropouts seamlessly.
 
 ### Sprint 3: Mobile Experience Optimization
 * **Responsive Layouts**: Optimize page grids and sidebars for tablet and mobile viewports.
