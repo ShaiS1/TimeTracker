@@ -34,6 +34,11 @@ This document tracks the feature roadmap, active task list, completed milestones
 
 ## 📜 Changelog
 
+### [v1.3.1] - 2026-06-03
+#### Changed
+* Customized browser tab title to "Tempo | Contract Work Time Tracker" (replacing default "Vite + React").
+* Replaced the default Vite lightning bolt favicon with a custom gradient brand favicon using an inline SVG data URI.
+
 ### [v1.3.0] - 2026-06-02
 #### Added
 * Dedicated pop-out timer button in the active stopwatch panel, opening a standalone, resizable window (`width=400`, `height=500`).
