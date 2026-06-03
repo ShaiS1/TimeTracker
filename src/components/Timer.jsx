@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Square, Clock, ExternalLink } from 'lucide-react';
-import { getTimerState, saveTimerState } from '../utils/storage';
+import { getTimerState, saveTimerState, getCloudTimerState, saveCloudTimerState } from '../utils/storage';
+import { generateClient } from 'aws-amplify/data';
+import outputs from '../../amplify_outputs.json';
+
+const isAmplifyConfigured = outputs && Object.keys(outputs).length > 0;
+const dataClient = isAmplifyConfigured ? generateClient() : null;
 
 export default function Timer({ userId, clients, categories, onLogEntry }) {
   const [seconds, setSeconds] = useState(0);
@@ -12,12 +17,76 @@ export default function Timer({ userId, clients, categories, onLogEntry }) {
   const [description, setDescription] = useState('');
   
   const countRef = useRef(null);
+  const debounceRef = useRef(null);
+  const pendingStateRef = useRef(null);
   const isPopout = window.location.search.includes('popout=true');
 
-  // Load state from localStorage on mount and when userId changes
+  const saveState = async (state) => {
+    saveTimerState(userId, state);
+    if (isAmplifyConfigured && dataClient) {
+      try {
+        await saveCloudTimerState(dataClient, state);
+      } catch (err) {
+        console.warn("Failed to sync timer state to cloud (offline fallback):", err);
+      }
+    }
+  };
+
+  const saveStateDebounced = (state) => {
+    saveTimerState(userId, state);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(async () => {
+      if (isAmplifyConfigured && dataClient) {
+        try {
+          await saveCloudTimerState(dataClient, state);
+          pendingStateRef.current = null;
+        } catch (err) {
+          console.warn("Failed to sync debounced description to cloud:", err);
+        }
+      }
+    }, 1000);
+  };
+
+  // Load state from localStorage & Cloud on mount and when userId changes
   useEffect(() => {
     if (!userId) return;
-    syncFromStorage();
+
+    const initTimer = async () => {
+      syncFromStorage();
+      
+      if (isAmplifyConfigured && dataClient) {
+        const cloudState = await getCloudTimerState(dataClient);
+        if (cloudState) {
+          const restoredState = {
+            startTime: cloudState.startTime,
+            accumulatedSeconds: cloudState.accumulatedSeconds,
+            isRunning: cloudState.isRunning,
+            isPaused: cloudState.isPaused,
+            clientId: cloudState.clientId || '',
+            category: cloudState.category || '',
+            description: cloudState.description || ''
+          };
+          
+          const localState = getTimerState(userId);
+          if (!localState || 
+              localState.startTime !== restoredState.startTime || 
+              localState.accumulatedSeconds !== restoredState.accumulatedSeconds ||
+              localState.isRunning !== restoredState.isRunning ||
+              localState.isPaused !== restoredState.isPaused ||
+              localState.clientId !== restoredState.clientId ||
+              localState.category !== restoredState.category ||
+              localState.description !== restoredState.description) {
+            
+            saveTimerState(userId, restoredState);
+            syncFromStorage();
+          }
+        }
+      }
+    };
+
+    initTimer();
 
     const handleStorageChange = (e) => {
       if (e.key === `tempo_timer_state_${userId}`) {
@@ -26,7 +95,17 @@ export default function Timer({ userId, clients, categories, onLogEntry }) {
     };
 
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        if (isAmplifyConfigured && dataClient && pendingStateRef.current) {
+          saveCloudTimerState(dataClient, pendingStateRef.current).catch(err => {
+            console.warn("Failed to sync cleanup timer state to cloud:", err);
+          });
+        }
+      }
+    };
   }, [userId]);
 
   // Sync function to read active timer state
@@ -97,7 +176,7 @@ export default function Timer({ userId, clients, categories, onLogEntry }) {
       category: selectedCategory,
       description
     };
-    saveTimerState(userId, newState);
+    saveState(newState);
     setIsActive(true);
     setIsPaused(false);
   };
@@ -126,13 +205,13 @@ export default function Timer({ userId, clients, categories, onLogEntry }) {
         description
       };
     }
-    saveTimerState(userId, newState);
+    saveState(newState);
     setIsPaused(nextPaused);
   };
 
   const handleReset = () => {
     clearInterval(countRef.current);
-    saveTimerState(userId, null);
+    saveState(null);
     setIsActive(false);
     setIsPaused(false);
     setSeconds(0);
@@ -248,7 +327,7 @@ export default function Timer({ userId, clients, categories, onLogEntry }) {
                 const state = getTimerState(userId);
                 if (state) {
                   state.clientId = e.target.value;
-                  saveTimerState(userId, state);
+                  saveState(state);
                 }
               }
             }}
@@ -275,7 +354,7 @@ export default function Timer({ userId, clients, categories, onLogEntry }) {
                 const state = getTimerState(userId);
                 if (state) {
                   state.category = e.target.value;
-                  saveTimerState(userId, state);
+                  saveState(state);
                 }
               }
             }}
@@ -300,7 +379,8 @@ export default function Timer({ userId, clients, categories, onLogEntry }) {
                 const state = getTimerState(userId);
                 if (state) {
                   state.description = e.target.value;
-                  saveTimerState(userId, state);
+                  pendingStateRef.current = state;
+                  saveStateDebounced(state);
                 }
               }
             }}

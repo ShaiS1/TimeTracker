@@ -334,3 +334,53 @@ export const saveTimerState = (userId, state) => {
   }
 };
 
+// Cloud active timer helper functions
+export const getCloudTimerState = async (dataClient) => {
+  if (!dataClient) return null;
+  try {
+    const { data } = await dataClient.models.ActiveTimer.list();
+    return data[0] || null;
+  } catch (err) {
+    console.error("Failed to query cloud timer state:", err);
+    return null;
+  }
+};
+
+export const saveCloudTimerState = async (dataClient, state) => {
+  if (!dataClient) return null;
+  try {
+    const { data: existing } = await dataClient.models.ActiveTimer.list();
+    
+    if (state) {
+      const payload = {
+        clientId: state.clientId || null,
+        category: state.category || null,
+        description: state.description || '',
+        startTime: state.startTime ? parseFloat(state.startTime) : null,
+        accumulatedSeconds: parseFloat(state.accumulatedSeconds || 0),
+        isRunning: !!state.isRunning,
+        isPaused: !!state.isPaused,
+      };
+
+      if (existing.length > 0) {
+        const { data: updated } = await dataClient.models.ActiveTimer.update({
+          id: existing[0].id,
+          ...payload
+        });
+        return updated;
+      } else {
+        const { data: created } = await dataClient.models.ActiveTimer.create(payload);
+        return created;
+      }
+    } else {
+      if (existing.length > 0) {
+        await Promise.all(existing.map(item => dataClient.models.ActiveTimer.delete({ id: item.id })));
+      }
+      return null;
+    }
+  } catch (err) {
+    console.error("Failed to save cloud timer state:", err);
+    throw err;
+  }
+};
+

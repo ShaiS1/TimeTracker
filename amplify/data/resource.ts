@@ -32,6 +32,16 @@ const schema = a.schema({
     paymentDetails: a.string(),
     taxRate: a.float(),
   }).authorization((allow) => [allow.owner()]),
+
+  ActiveTimer: a.model({
+    clientId: a.string(),
+    category: a.string(),
+    description: a.string(),
+    startTime: a.float(),
+    accumulatedSeconds: a.float().required(),
+    isRunning: a.boolean().required(),
+    isPaused: a.boolean().required(),
+  }).authorization((allow) => [allow.owner()]),
 });
 
 export type Schema = ClientSchema<typeof schema>;

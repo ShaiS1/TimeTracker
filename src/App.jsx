@@ -37,7 +37,9 @@ import {
   getUserProfile as getLocalUserProfile, 
   saveUserProfile as saveLocalUserProfile, 
   getTheme, 
-  saveTheme 
+  saveTheme,
+  getTimerState,
+  saveTimerState
 } from './utils/storage';
 
 import { generateInvoicePDF } from './utils/pdfGenerator';
@@ -210,6 +212,24 @@ export default function App() {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [currentUser]);
 
+  // Warning guard before browser window closes if a timer is running
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    const handleBeforeUnload = (e) => {
+      const userIdVal = isAmplifyConfigured ? currentUser.userId : currentUser.id;
+      const timerState = getTimerState(userIdVal);
+      if (timerState && timerState.isRunning && !timerState.isPaused) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [currentUser]);
+
   // Theme toggle
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
@@ -225,19 +245,37 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    if (window.confirm("Are you sure you want to log out?")) {
-      try {
-        if (isAmplifyConfigured) {
-          await signOut();
-        } else {
-          saveLocalCurrentUser(null);
-        }
-      } catch (err) {
-        console.error("Signout error:", err);
-      } finally {
-        setCurrentUser(null);
-        setActiveTab('dashboard');
+    const userIdVal = isAmplifyConfigured ? currentUser.userId : currentUser.id;
+    const timerState = getTimerState(userIdVal);
+    
+    if (timerState && timerState.isRunning && !timerState.isPaused) {
+      if (!window.confirm("You have an active timer running. Logging out will clear your active timer session. Do you want to proceed?")) {
+        return;
       }
+    } else {
+      if (!window.confirm("Are you sure you want to log out?")) {
+        return;
+      }
+    }
+
+    try {
+      if (isAmplifyConfigured) {
+        try {
+          const { data: timers } = await dataClient.models.ActiveTimer.list();
+          await Promise.all(timers.map(t => dataClient.models.ActiveTimer.delete({ id: t.id })));
+        } catch (err) {
+          console.warn("Failed to clear cloud timer on logout:", err);
+        }
+        await signOut();
+      } else {
+        saveLocalCurrentUser(null);
+      }
+      saveTimerState(userIdVal, null);
+    } catch (err) {
+      console.error("Signout error:", err);
+    } finally {
+      setCurrentUser(null);
+      setActiveTab('dashboard');
     }
   };
 
@@ -254,16 +292,21 @@ export default function App() {
           const deleteCats = catsList.map(c => dataClient.models.Category.delete({ id: c.id }));
           const deleteProfile = dataClient.models.UserProfile.delete({ id: userProfile.id });
 
-          await Promise.all([...deleteClients, ...deleteEntries, ...deleteCats, deleteProfile]);
+          const { data: timersList } = await dataClient.models.ActiveTimer.list();
+          const deleteTimers = timersList.map(t => dataClient.models.ActiveTimer.delete({ id: t.id }));
+
+          await Promise.all([...deleteClients, ...deleteEntries, ...deleteCats, ...deleteTimers, deleteProfile]);
 
           // 2. Delete Cognito Authentication Account
           await deleteUser();
+          saveTimerState(currentUser.userId, null);
         } else {
           // Local fallback delete
           localStorage.removeItem(`tempo_clients_${currentUser.id}`);
           localStorage.removeItem(`tempo_categories_${currentUser.id}`);
           localStorage.removeItem(`tempo_entries_${currentUser.id}`);
           localStorage.removeItem(`tempo_user_profile_${currentUser.id}`);
+          localStorage.removeItem(`tempo_timer_state_${currentUser.id}`);
           
           const users = JSON.parse(localStorage.getItem('tempo_users')) || [];
           const updatedUsers = users.filter(u => u.id !== currentUser.id);
