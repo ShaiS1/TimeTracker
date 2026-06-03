@@ -918,6 +918,12 @@ body {
   flex: 1;
 }
 
+.profile-manager-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 2rem;
+}
+
 /* Mobile bottom nav bar elements */
 .mobile-nav-bar {
   display: none;
@@ -1018,6 +1024,11 @@ body {
 
   .profile-grid .form-group.full-width {
     grid-column: span 1;
+  }
+
+  .profile-manager-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
   }
 
   /* Mobile Entry Card styles */

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { User, ShieldAlert, Download, Upload, Trash2 } from 'lucide-react';
+import { User, ShieldAlert, Download, Upload, Trash2, LogOut } from 'lucide-react';
 import { exportBackup, importBackup } from '../utils/storage';
 
-export default function ProfileMgr({ userProfile, onUpdateProfile, onDeleteAccount }) {
+export default function ProfileMgr({ userProfile, onUpdateProfile, onDeleteAccount, onLogout }) {
   const [name, setName] = useState(userProfile.name || '');
   const [email, setEmail] = useState(userProfile.email || '');
   const [company, setCompany] = useState(userProfile.company || '');
@@ -62,7 +62,7 @@ export default function ProfileMgr({ userProfile, onUpdateProfile, onDeleteAccou
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '2rem' }}>
+    <div className="profile-manager-grid">
       {/* Profile Form */}
       <form className="card" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '0.5rem' }}>
@@ -150,8 +150,36 @@ export default function ProfileMgr({ userProfile, onUpdateProfile, onDeleteAccou
         </div>
       </form>
 
-      {/* Right Column: Backup and Danger Zone */}
+      {/* Right Column: Active Session, Backup and Danger Zone */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        {/* Active Session / Log Out Card */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <LogOut size={20} style={{ color: 'var(--color-primary)' }} />
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Active Session</h2>
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            You are logged in as <strong style={{ color: 'var(--text-primary)' }}>{userProfile.email || email}</strong>.
+          </p>
+          <button 
+            type="button" 
+            className="btn" 
+            onClick={onLogout}
+            style={{ 
+              backgroundColor: 'rgba(239, 68, 68, 0.08)', 
+              color: '#ef4444', 
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              padding: '0.6rem'
+            }}
+          >
+            <LogOut size={16} /> Log Out from Tempo
+          </button>
+        </div>
         {/* Backup Card */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

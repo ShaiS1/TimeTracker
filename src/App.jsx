@@ -852,6 +852,7 @@ export default function App() {
               userProfile={userProfile} 
               onUpdateProfile={handleUpdateProfile} 
               onDeleteAccount={handleDeleteAccount}
+              onLogout={handleLogout}
             />
           )}
         </div>
