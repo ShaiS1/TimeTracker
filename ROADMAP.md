@@ -78,30 +78,85 @@ This document tracks the feature roadmap, active task list, completed milestones
 
 ---
 
-## 📅 Upcoming Sprints (Outline)
+## 📅 Upcoming Sprints (Detailed Planning Outline)
 
 *Note: This is an initial planning outline for upcoming fixes and enhancements. Development has not yet started.*
 
-### Sprint 1: Authentication & Security
-* **Finish Authentication**: Ensure all edge cases and login screens are solid.
-* **Password Reset**: Implement Cognito password recovery flows.
+### Sprint 1: Authentication, Security & Customization
+* **Finish Authentication**: Refine registration, login, session recovery, and secure logout flows.
+* **Password Reset**: Implement AWS Cognito password recovery and reset flows.
 * **Session Management**: Handle session timeouts, token refreshments, and logouts.
-* **Data Isolation Review**: Perform security checks on owner-based AppSync data partitions.
+* **Data Isolation Review**: Perform security checks on owner-based AppSync data partitions (ensuring users only see their own Clients, Categories, TimeEntries, and Profiles).
 * **Cognito Email Customization**: Configure custom verification and password reset email templates matching Tempo branding.
 
-### Sprint 2: Timer Persistence & Recovery
-* **Timer Persistence**: Save active stopwatch timer state in the cloud/database.
+### Sprint 2: Timer Persistence & Reliability (Highest Priority)
+* **Timer Persistence**: Save active stopwatch timer state in the cloud/database so it survives browser crashes, refreshes, device sleep, and network interruptions.
 * **Browser Refresh Recovery**: Recover active running timers automatically after a page refresh.
-* **Session Recovery**: Seamlessly restore application state on login session resumption.
-* **Active Timer Safeguards**: Prevent accidental navigation or logging of invalid timer states.
+* **Session Recovery**: Seamlessly restore active timer state and session details on reopening the application.
+* **Active Timer Safeguards**: Prevent accidental navigation or logging of invalid timer states, ensuring billable hours are never at risk.
 * **Offline-First Resilience**: Implement local mutations caching and sync to handle transient network dropouts seamlessly.
 
-### Sprint 3: Mobile Experience Optimization
-* **Responsive Layouts**: Optimize page grids and sidebars for tablet and mobile viewports.
-* **Mobile Dashboard**: Simplified analytics charts and card summaries for small screens.
-* **Mobile Timer Experience**: A touch-optimized active timer dashboard and widget.
+### Sprint 3: Mobile Experience Companion
+* **Mobile Strategy**: Do not replicate the full desktop interface. Focus on mobile as a quick reference companion.
+* **Mobile Dashboard**: Focus on key metrics (Today's Hours, Active Timer, Weekly Hours, Unbilled Earnings, and Recent Entries), avoiding large tables.
+* **Mobile Quick Actions**: Allow starting, stopping, pausing timers, viewing today's work, and quick-adding time entries.
 
-### Sprint 4: Invoicing, Export & Branding
-* **PDF Improvements**: Refine page break calculations, column widths, and fonts.
-* **Export Improvements**: Enhance raw JSON backup, CSV formats, and import parsers.
-* **Branding**: Further polish logos, colors, invoice styling, and custom brand configurations.
+### Sprint 4: Reporting, Invoicing & Branding
+* **PDF Invoice Improvements**: Enhance page breaks, layout fonts, notes sections, and formatting.
+* **Branding**: Further polish logos, invoice styling, company branding, and custom colors.
+* **Export Improvements**: Support exporting timesheets to PDF, Excel, and CSV (including contractor name, period, hours, and amount due).
+* **Bulk Actions**: Support marking selected entries as billed/paid, generating batch invoices, and bulk exporting entries.
+
+---
+
+## 🎯 Consolidated Product Review & Future Priorities
+
+### Priority 3: Timer Experience
+* **Enhanced Active Session Display**: While active, display Client, Category, Description, Elapsed Time, and live Earnings (e.g., `Client: Acme | 02:14:37 | $89.58 Earned`).
+* **Earnings Meter**: Dynamic live billing calculation running in real-time.
+* **Dynamic Browser Title**: Update the tab title to show active state (e.g., `Tempo - 02:14:37` or `Tempo - Acme Deployment - 02:14:37`).
+* **Dedicated Popup Layout**: Simplify the popout timer window into a compact widget showing only controls, elapsed time, description, and live earnings.
+
+### Priority 5: Client Enhancements
+* **Client Statistics**: Show total hours, total revenue, unbilled revenue, and last activity per client.
+* **Client Dashboard**: Add detailed views showing client-specific revenue, hours worked, invoices, recent entries, and outstanding balance.
+* **Client Statuses**: Introduce `Active`, `Inactive`, and `Archived` filters for long-term project management.
+* **Separate Invoice Contact**: Support mapping a separate Billing/Invoice contact address and email separate from the primary contact.
+
+### Priority 6: Category Enhancements
+* **Billable vs. Non-Billable**: Allow categorizing work as billable (e.g., Development) or non-billable (e.g., Admin, Training) for better reporting.
+* **Category Analytics**: Show total hours logged, revenue generated, and usage count per work category.
+* **Category Colors**: Assign customizable colors to categories, reused in charts, reports, and calendar feeds.
+
+### Priority 7: Analytics Expansion
+* **Revenue Trends**: Graph billing by month and week (e.g., Month-over-Month comparisons).
+* **Hours Trends**: Track hours worked per week and month to monitor contractor workload.
+* **Client Trends**: Analyze client revenue changes over time.
+* **Productivity Metrics**: Add KPI summary cards (Top Client, Most Used Category, Average Hours/Day, Average Revenue/Week).
+* **Clickable Analytics**: Enable interactive charts (e.g., clicking on a client's slice in a pie chart filters the Time Logs view).
+
+### Future Roadmap Ideas (Backlog)
+* **Tax Estimator**: Suggest monthly tax reserves for 1099 independent contractors based on current tax settings.
+* **Recurring/Pinned Elements**: Support pinning favorite clients or frequently used categories.
+* **Saved Filters**: Support saving custom views (e.g., "Current Month Unbilled Work", "Client-Specific Views").
+* **Client Portal**: Future portal allowing clients to view report sheets, download PDF invoices, and review logs directly.
+* **Team Support**: Multi-contractor support with manager review and approval workflows.
+
+---
+
+## 💡 Strategic Recommendation
+
+The Tempo application already has substantial feature depth. **We must avoid major feature expansion for the time being.**
+
+Instead, our focus is strictly locked onto stabilizing and refining the core tracking loop:
+1. **Authentication & Session Security** (Sprint 1)
+2. **Timer Reliability & Offline Protection** (Sprint 2)
+3. **Mobile Quick Action Companion** (Sprint 3)
+4. **Professional Invoice Polish & Data Export** (Sprint 4)
+
+**Tempo's biggest risk is not a lack of features; it is the reliability of the existing time tracking workflow.** Independent contractors can tolerate missing charts or analytics, but they cannot tolerate:
+* Lost timer sessions or lost work hours.
+* Stale or incorrect invoice numbers/math.
+* Broken session logins.
+
+We will focus on making the existing time-tracking workflow **100% bulletproof** before expanding the platform further.
