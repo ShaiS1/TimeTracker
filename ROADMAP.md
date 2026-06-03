@@ -107,6 +107,13 @@ This document tracks the feature roadmap, active task list, completed milestones
 * **Export Improvements**: Support exporting timesheets to PDF, Excel, and CSV (including contractor name, period, hours, and amount due).
 * **Bulk Actions**: Support marking selected entries as billed/paid, generating batch invoices, and bulk exporting entries.
 
+### Sprint 5: Invoices Registry, Budgets & Rounding (Planned Backlog)
+* **Invoice Registry & Payment Tracking**: Create an Invoices tab to manage unpaid, overdue, and paid invoices, and quickly re-download past PDF invoices.
+* **Billable vs. Non-Billable Switch**: Add a billable toggle on stopwatch/logs to track non-billable hours at a $0 rate while keeping them in productivity stats.
+* **Hour Rounding Rules**: Global or client-specific time-rounding configurations (e.g. round to nearest 6, 15, or 30 minutes).
+* **Retainer & Budget Caps**: Track maximum hours or billing limits per client with warnings and dashboard progress gauges.
+* **Sync Status Indicator**: Add a header status dot (Green for cloud, Yellow for local fallback) to alert the user of connection status.
+
 ---
 
 ## 🎯 Consolidated Product Review & Future Priorities
