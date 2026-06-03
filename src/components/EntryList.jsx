@@ -264,8 +264,8 @@ export default function EntryList({ entries, clients, onDeleteEntry, onEditEntry
         </div>
       </div>
 
-      {/* Main Table */}
-      <div className="card table-container" style={{ padding: 0 }}>
+      {/* Main Table (Desktop View) */}
+      <div className="card table-container desktop-only-view" style={{ padding: 0 }}>
         {filteredEntries.length === 0 ? (
           <div style={{ padding: '4rem 2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
             <h3>No entries found matching filters</h3>
@@ -352,6 +352,80 @@ export default function EntryList({ entries, clients, onDeleteEntry, onEditEntry
               })}
             </tbody>
           </table>
+        )}
+      </div>
+
+      {/* Mobile Card List View */}
+      <div className="mobile-only-view">
+        {filteredEntries.length === 0 ? (
+          <div className="card" style={{ padding: '3rem 1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <h3>No entries found</h3>
+            <p style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>Try adjusting filters.</p>
+          </div>
+        ) : (
+          filteredEntries.map(entry => {
+            const client = clientMap[entry.clientId];
+            const isSelected = selectedIds.includes(entry.id);
+            return (
+              <div 
+                className="card mobile-entry-card" 
+                key={entry.id}
+                style={{ 
+                  backgroundColor: isSelected ? 'rgba(124, 58, 237, 0.04)' : '',
+                  borderColor: isSelected ? 'var(--color-primary)' : ''
+                }}
+              >
+                {/* Row 1: Checkbox, Client Name, and Amount */}
+                <div className="mobile-card-row">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', overflow: 'hidden' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={isSelected} 
+                      onChange={() => handleSelectRow(entry.id)} 
+                    />
+                    <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                      {client ? client.name : 'Unknown'}
+                    </strong>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <strong style={{ fontSize: '0.95rem', color: 'var(--color-paid)', fontFeatureSettings: "tnum" }}>
+                      {formatCurrency(entry.duration * entry.rate)}
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Row 2: Date, Duration, and Category Badge */}
+                <div className="mobile-card-row" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  <span>{entry.date} &bull; {entry.duration.toFixed(2)}h</span>
+                  <span style={{ padding: '0.15rem 0.4rem', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '4px', fontSize: '0.75rem' }}>
+                    {entry.category}
+                  </span>
+                </div>
+
+                {/* Row 3: Description */}
+                <div className="mobile-card-desc">
+                  {entry.description}
+                </div>
+
+                {/* Row 4: Status Badge and Actions */}
+                <div className="mobile-card-row" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.6rem', marginTop: '0.2rem' }}>
+                  <span className={`badge badge-${entry.status.toLowerCase()}`} style={{ fontSize: '0.7rem' }}>
+                    {entry.status}
+                    {entry.invoiceNumber && <span style={{ fontSize: '0.6rem', opacity: 0.7, marginLeft: '2px' }}>({entry.invoiceNumber})</span>}
+                  </span>
+                  
+                  <div className="cell-actions">
+                    <button className="btn btn-secondary btn-icon-only btn-sm" onClick={() => onEditEntry(entry)}>
+                      <Edit2 size={13} />
+                    </button>
+                    <button className="btn btn-secondary btn-icon-only btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => onDeleteEntry(entry.id)}>
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
     </div>

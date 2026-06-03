@@ -971,6 +971,45 @@ export default function App() {
           </form>
         </div>
       )}
+
+      {/* Mobile Bottom Navigation Bar */}
+      <nav className="mobile-nav-bar">
+        <button 
+          className={`mobile-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+          onClick={() => setActiveTab('dashboard')}
+        >
+          <LayoutDashboard size={20} />
+          <span>Home</span>
+        </button>
+        <button 
+          className={`mobile-nav-item ${activeTab === 'timer' ? 'active' : ''}`}
+          onClick={() => setActiveTab('timer')}
+        >
+          <Clock size={20} />
+          <span>Track</span>
+        </button>
+        <button 
+          className={`mobile-nav-item ${activeTab === 'entries' ? 'active' : ''}`}
+          onClick={() => setActiveTab('entries')}
+        >
+          <FileText size={20} />
+          <span>Logs</span>
+        </button>
+        <button 
+          className={`mobile-nav-item ${activeTab === 'clients' ? 'active' : ''}`}
+          onClick={() => setActiveTab('clients')}
+        >
+          <Users size={20} />
+          <span>Clients</span>
+        </button>
+        <button 
+          className={`mobile-nav-item ${activeTab === 'profile' ? 'active' : ''}`}
+          onClick={() => setActiveTab('profile')}
+        >
+          <UserCircle2 size={20} />
+          <span>Settings</span>
+        </button>
+      </nav>
     </div>
   );
 }

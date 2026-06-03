@@ -110,7 +110,7 @@ export default function Analytics({ entries, clients }) {
             Log hours to view earning analytics
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1.5rem', alignItems: 'center', flex: 1 }}>
+          <div className="analytics-grid">
             {/* SVG Donut */}
             <div style={{ display: 'flex', justifyContent: 'center', position: 'relative' }}>
               <svg viewBox="0 0 42 42" width="160" height="160" style={{ transform: 'rotate(-90deg)' }}>

@@ -68,7 +68,7 @@ export default function ClientMgr({ clients, onAddClient, onUpdateClient, onDele
 
   return (
     <div className="client-manager-section">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div className="view-header-container">
         <div>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Client Management</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Manage your corporate clients, contact info, and base billing rates.</p>

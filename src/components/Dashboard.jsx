@@ -121,7 +121,7 @@ export default function Dashboard({ entries, clients }) {
       </div>
 
       {/* Date breakdowns sub-cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+      <div className="dashboard-targets-grid">
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>This Calendar Month</h3>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '0.5rem' }}>
