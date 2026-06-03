@@ -75,3 +75,31 @@ This document tracks the feature roadmap, active task list, completed milestones
 ### [v1.0.0] - 2026-06-02
 #### Added
 * Initial project release containing Dashboard, Stopwatch Tracker, Client Mgr, Category Mgr, Manual Logs, Filters, and PDF Invoice Generation.
+
+---
+
+## 📅 Upcoming Sprints (Outline)
+
+*Note: This is an initial planning outline for upcoming fixes and enhancements. Development has not yet started.*
+
+### Sprint 1: Authentication & Security
+* **Finish Authentication**: Ensure all edge cases and login screens are solid.
+* **Password Reset**: Implement Cognito password recovery flows.
+* **Session Management**: Handle session timeouts, token refreshments, and logouts.
+* **Data Isolation Review**: Perform security checks on owner-based AppSync data partitions.
+
+### Sprint 2: Timer Persistence & Recovery
+* **Timer Persistence**: Save active stopwatch timer state in the cloud/database.
+* **Browser Refresh Recovery**: Recover active running timers automatically after a page refresh.
+* **Session Recovery**: Seamlessly restore application state on login session resumption.
+* **Active Timer Safeguards**: Prevent accidental navigation or logging of invalid timer states.
+
+### Sprint 3: Mobile Experience Optimization
+* **Responsive Layouts**: Optimize page grids and sidebars for tablet and mobile viewports.
+* **Mobile Dashboard**: Simplified analytics charts and card summaries for small screens.
+* **Mobile Timer Experience**: A touch-optimized active timer dashboard and widget.
+
+### Sprint 4: Invoicing, Export & Branding
+* **PDF Improvements**: Refine page break calculations, column widths, and fonts.
+* **Export Improvements**: Enhance raw JSON backup, CSV formats, and import parsers.
+* **Branding**: Further polish logos, colors, invoice styling, and custom brand configurations.
