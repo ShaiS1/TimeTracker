@@ -343,7 +343,7 @@ export default function Timer({ userId, clients, categories, onLogEntry, entries
   };
 
   return (
-    <div className="card timer-panel" style={{ height: isPopout ? '100vh' : 'auto', display: 'flex', flexDirection: 'column', justifyContent: 'center', border: isPopout ? 'none' : '', margin: isPopout ? 0 : '', borderRadius: isPopout ? 0 : '' }}>
+    <div className="card timer-panel" style={{ height: isPopout ? '100vh' : 'auto', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', border: isPopout ? 'none' : '', margin: isPopout ? 0 : '', borderRadius: isPopout ? 0 : '' }}>
       <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: isPopout ? '1px solid var(--border-color)' : '', paddingBottom: isPopout ? '0.75rem' : '' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Clock size={20} className={isActive && !isPaused ? "pulse-animate" : ""} style={{ color: 'var(--color-primary)' }} />
