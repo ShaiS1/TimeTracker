@@ -1256,7 +1256,7 @@ export default function App() {
               <Dashboard entries={entries} clients={clients} />
               <div className="dashboard-grid">
                 <Timer userId={userIdVal} clients={clients} categories={categories} onLogEntry={handleSaveEntry} entries={entries} />
-                <Analytics entries={entries} clients={clients} />
+                <Analytics entries={entries} clients={clients} invoices={invoices} />
               </div>
             </div>
           )}
@@ -1310,7 +1310,7 @@ export default function App() {
           )}
 
           {activeTab === 'analytics' && (
-            <Analytics entries={entries} clients={clients} />
+            <Analytics entries={entries} clients={clients} invoices={invoices} />
           )}
 
           {activeTab === 'profile' && (
