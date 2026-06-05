@@ -18,8 +18,10 @@ This document tracks the feature roadmap, active task list, completed milestones
 | **Inline Category Modifying** | Rename categories inline with cascading updates to logs | ✅ Completed | v1.2.0 |
 | **Pop-out Timer Window** | Standalone popout tracker window with cross-tab sync | ✅ Completed | v1.3.0 |
 | **Cloud Database Sync** | Server sync using AWS Amplify Gen 2 for persistent cloud storage and cross-device sync | ✅ Completed | v1.4.0 |
+| **Invoices Registry & Limits** | Invoice Registry, payment states, billable toggles, client budget caps, rounding rules, sync status dot | ✅ Completed | v1.5.0 |
 | **Invoice Email Integration** | Send PDF invoices directly to client emails from the app | 📋 Planned | v2.1.0 |
 | **Timer Idle Detection** | Prompt user to discard or resume if timer runs but no keyboard/mouse activity is detected | 📋 Planned | v2.2.0 |
+| **Gusto Invoice Sync** | Link contractor invoices directly with Gusto payroll for client approval and auto-payment sync | 📋 Planned | v2.3.0 |
 
 ---
 
@@ -33,6 +35,15 @@ This document tracks the feature roadmap, active task list, completed milestones
 ---
 
 ## 📜 Changelog
+
+### [v1.5.0] - 2026-06-05
+#### Added
+* Implemented Invoices Registry dashboard tab to manage, search, sort, and filter generated client invoices.
+* Added invoice lifecycle states (`Unpaid`, `Paid`, `Overdue`) and action triggers: Mark Paid, Delete Invoice, and Re-download PDF invoice.
+* Implemented Billable vs. Non-Billable toggles for the real-time stopwatch tracker and manual entry log form.
+* Created time duration rounding rules (Nearest 6m, 15m, 30m, Ceil 15m) configurable globally or per-client.
+* Added client retainer/budget caps (Hours/Revenue limits) with automated warning alerts and visual progress gauges.
+* Added a dynamic connection status indicator in the top header tracking local sandbox fallback, cloud syncing, and offline states.
 
 ### [v1.4.0] - 2026-06-03
 #### Added
@@ -107,7 +118,7 @@ This document tracks the feature roadmap, active task list, completed milestones
 * **Export Improvements**: Support exporting timesheets to PDF, Excel, and CSV (including contractor name, period, hours, and amount due).
 * **Bulk Actions**: Support marking selected entries as billed/paid, generating batch invoices, and bulk exporting entries.
 
-### Sprint 5: Invoices Registry, Budgets & Rounding (Planned Backlog)
+### Sprint 5: Invoices Registry, Budgets & Rounding (Completed)
 * **Invoice Registry & Payment Tracking**: Create an Invoices tab to manage unpaid, overdue, and paid invoices, and quickly re-download past PDF invoices.
 * **Billable vs. Non-Billable Switch**: Add a billable toggle on stopwatch/logs to track non-billable hours at a $0 rate while keeping them in productivity stats.
 * **Hour Rounding Rules**: Global or client-specific time-rounding configurations (e.g. round to nearest 6, 15, or 30 minutes).
@@ -148,6 +159,11 @@ This document tracks the feature roadmap, active task list, completed milestones
 * **Saved Filters**: Support saving custom views (e.g., "Current Month Unbilled Work", "Client-Specific Views").
 * **Client Portal**: Future portal allowing clients to view report sheets, download PDF invoices, and review logs directly.
 * **Team Support**: Multi-contractor support with manager review and approval workflows.
+* **Gusto Payments Sync**: Link contractor invoices directly with Gusto contractor payroll:
+  * Connect Gusto company account via secure OAuth2 authorization.
+  * Map Tempo Client profiles to Gusto `contractor_uuid` values.
+  * Send invoices directly to Gusto as payment groups with preview estimates.
+  * Receive real-time payment status updates (e.g. Funded/Cleared) via webhooks to auto-reconcile invoices in the registry.
 
 ---
 
