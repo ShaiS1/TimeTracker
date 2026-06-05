@@ -9,6 +9,7 @@ export default function ProfileMgr({ userProfile, onUpdateProfile, onDeleteAccou
   const [address, setAddress] = useState(userProfile.address || '');
   const [paymentDetails, setPaymentDetails] = useState(userProfile.paymentDetails || '');
   const [taxRate, setTaxRate] = useState(userProfile.taxRate || 0);
+  const [defaultRounding, setDefaultRounding] = useState(userProfile.defaultRounding || 'none');
 
   const [deleteConfirm, setDeleteConfirm] = useState('');
 
@@ -20,7 +21,8 @@ export default function ProfileMgr({ userProfile, onUpdateProfile, onDeleteAccou
       company: company.trim(),
       address: address.trim(),
       paymentDetails: paymentDetails.trim(),
-      taxRate: parseFloat(taxRate) || 0
+      taxRate: parseFloat(taxRate) || 0,
+      defaultRounding
     });
     alert('Developer profile updated successfully.');
   };
@@ -140,6 +142,21 @@ export default function ProfileMgr({ userProfile, onUpdateProfile, onDeleteAccou
               onChange={(e) => setTaxRate(e.target.value)} 
               placeholder="e.g. 10" 
             />
+          </div>
+
+          <div className="form-group">
+            <label>Default Time Rounding</label>
+            <select 
+              className="select-field"
+              value={defaultRounding}
+              onChange={(e) => setDefaultRounding(e.target.value)}
+            >
+              <option value="none">None (Raw Time)</option>
+              <option value="nearest_6">Nearest 6 Minutes (0.1h)</option>
+              <option value="nearest_15">Nearest 15 Minutes (0.25h)</option>
+              <option value="nearest_30">Nearest 30 Minutes (0.5h)</option>
+              <option value="ceil_15">Round Up to Nearest 15 Minutes</option>
+            </select>
           </div>
         </div>
 

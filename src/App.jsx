@@ -11,7 +11,8 @@ import {
   Sun,
   FileText,
   X,
-  LogOut
+  LogOut,
+  Receipt
 } from 'lucide-react';
 
 import Login from './components/Login';
@@ -23,6 +24,7 @@ import ClientMgr from './components/ClientMgr';
 import CategoryMgr from './components/CategoryMgr';
 import Analytics from './components/Analytics';
 import ProfileMgr from './components/ProfileMgr';
+import Invoices from './components/Invoices';
 
 // Local Storage Fallback Helpers
 import { 
@@ -36,6 +38,8 @@ import {
   saveEntries as saveLocalEntries, 
   getUserProfile as getLocalUserProfile, 
   saveUserProfile as saveLocalUserProfile, 
+  getInvoices as getLocalInvoices,
+  saveInvoices as saveLocalInvoices,
   getTheme, 
   saveTheme,
   getTimerState,
@@ -52,17 +56,46 @@ import outputs from '../amplify_outputs.json';
 const isAmplifyConfigured = outputs && Object.keys(outputs).length > 0;
 const dataClient = isAmplifyConfigured ? generateClient() : null;
 
+// Rounding utility helper
+const getRoundedDuration = (duration, clientId, clientsList, profile) => {
+  const client = clientsList.find(c => c.id === clientId);
+  let rule = client?.roundingRule || 'default';
+  
+  if (rule === 'default') {
+    rule = profile?.defaultRounding || 'none';
+  }
+  
+  if (rule === 'none') {
+    return duration;
+  }
+  
+  let rounded = duration;
+  if (rule === 'nearest_6') {
+    rounded = Math.round(duration * 10) / 10;
+  } else if (rule === 'nearest_15') {
+    rounded = Math.round(duration * 4) / 4;
+  } else if (rule === 'nearest_30') {
+    rounded = Math.round(duration * 2) / 2;
+  } else if (rule === 'ceil_15') {
+    rounded = Math.ceil(duration * 4) / 4;
+  }
+  
+  return rounded > 0 ? parseFloat(rounded.toFixed(2)) : 0.01;
+};
+
 export default function App() {
   // Authentication State
   const [currentUser, setCurrentUser] = useState(null);
   const [authInitialized, setAuthInitialized] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isOnline, setIsOnline] = useState(window.navigator.onLine);
 
   // App States
   const [clients, setClients] = useState([]);
   const [categories, setCategories] = useState([]);
   const [entries, setEntries] = useState([]);
   const [userProfile, setUserProfile] = useState({});
+  const [invoices, setInvoices] = useState([]);
   
   const [activeTab, setActiveTab] = useState('dashboard');
   const [theme, setTheme] = useState('dark');
@@ -90,7 +123,7 @@ export default function App() {
 
   const isPopout = window.location.search.includes('popout=true');
 
-  // Initialize Auth & Theme on mount
+  // Initialize Auth, Theme, and network listeners on mount
   useEffect(() => {
     const initAuth = async () => {
       if (isAmplifyConfigured) {
@@ -121,6 +154,15 @@ export default function App() {
     const savedTheme = getTheme();
     setTheme(savedTheme);
     document.documentElement.setAttribute('data-theme', savedTheme);
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   // Sync data when currentUser changes
@@ -131,6 +173,7 @@ export default function App() {
         setCategories([]);
         setEntries([]);
         setUserProfile({});
+        setInvoices([]);
         setInvoiceTaxRate(0);
         return;
       }
@@ -201,6 +244,11 @@ export default function App() {
             setUserProfile(currentProfile);
             setInvoiceTaxRate(currentProfile.taxRate || 0);
           }
+
+          // 5. Fetch Invoices
+          const { data: invoicesData } = await dataClient.models.Invoice.list();
+          const sortedInvoices = [...invoicesData].sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate));
+          setInvoices(sortedInvoices);
         } catch (err) {
           console.error("Amplify data fetch error:", err);
         } finally {
@@ -211,6 +259,7 @@ export default function App() {
         setClients(getLocalClients(currentUser.id));
         setCategories(getLocalCategories(currentUser.id));
         setEntries(getLocalEntries(currentUser.id));
+        setInvoices(getLocalInvoices(currentUser.id));
         
         const profile = getLocalUserProfile(currentUser.id);
         setUserProfile(profile);
@@ -477,42 +526,57 @@ export default function App() {
 
   // --- Time Entries CRUD Handlers ---
   const handleSaveEntry = async (entryPayload) => {
+    const roundedDuration = getRoundedDuration(
+      entryPayload.duration, 
+      entryPayload.clientId, 
+      clients, 
+      userProfile
+    );
+    
+    const finalPayload = {
+      ...entryPayload,
+      duration: roundedDuration,
+      isBillable: entryPayload.isBillable !== false
+    };
+
     if (isAmplifyConfigured) {
-      if (entryPayload.id) {
+      if (finalPayload.id) {
         const { data } = await dataClient.models.TimeEntry.update({
-          id: entryPayload.id,
-          clientId: entryPayload.clientId,
-          category: entryPayload.category,
-          duration: entryPayload.duration,
-          rate: entryPayload.rate,
-          date: entryPayload.date,
-          description: entryPayload.description,
-          status: entryPayload.status,
-          invoiceNumber: entryPayload.invoiceNumber || null
+          id: finalPayload.id,
+          clientId: finalPayload.clientId,
+          category: finalPayload.category,
+          duration: finalPayload.duration,
+          rate: finalPayload.rate,
+          date: finalPayload.date,
+          description: finalPayload.description,
+          status: finalPayload.status,
+          invoiceNumber: finalPayload.invoiceNumber || null,
+          isBillable: finalPayload.isBillable
         });
-        setEntries(entries.map(e => e.id === entryPayload.id ? data : e));
+        setEntries(entries.map(e => e.id === finalPayload.id ? data : e));
         setEditingEntry(null);
       } else {
         const { data } = await dataClient.models.TimeEntry.create({
-          clientId: entryPayload.clientId,
-          category: entryPayload.category,
-          duration: entryPayload.duration,
-          rate: entryPayload.rate,
-          date: entryPayload.date,
-          description: entryPayload.description || 'Timer log entry',
-          status: entryPayload.status,
-          invoiceNumber: null
+          clientId: finalPayload.clientId,
+          category: finalPayload.category,
+          duration: finalPayload.duration,
+          rate: finalPayload.rate,
+          date: finalPayload.date,
+          description: finalPayload.description || 'Timer log entry',
+          status: finalPayload.status,
+          invoiceNumber: null,
+          isBillable: finalPayload.isBillable
         });
         setEntries([data, ...entries]);
         setIsManualLogModalOpen(false);
       }
     } else {
       let updated;
-      if (entryPayload.id) {
-        updated = entries.map(e => e.id === entryPayload.id ? { ...e, ...entryPayload } : e);
+      if (finalPayload.id) {
+        updated = entries.map(e => e.id === finalPayload.id ? { ...e, ...finalPayload } : e);
         setEditingEntry(null);
       } else {
-        const newEntry = { ...entryPayload, id: `entry-${Date.now()}` };
+        const newEntry = { ...finalPayload, id: `entry-${Date.now()}` };
         updated = [newEntry, ...entries];
         setIsManualLogModalOpen(false);
       }
@@ -627,6 +691,10 @@ export default function App() {
       taxRate: invoiceTaxRate
     });
 
+    const subtotal = invoiceEntries.reduce((sum, entry) => sum + (entry.isBillable !== false ? entry.duration * entry.rate : 0), 0);
+    const tax = subtotal * (parseFloat(invoiceTaxRate) / 100);
+    const totalAmount = subtotal + tax;
+
     // 2. Mark entries as billed in database
     const invoiceIds = invoiceEntries.map(entry => entry.id);
     if (isAmplifyConfigured) {
@@ -635,9 +703,25 @@ export default function App() {
         status: 'Billed',
         invoiceNumber: invoiceNumber.trim()
       })));
+      
+      const { data: newInvoice } = await dataClient.models.Invoice.create({
+        invoiceNumber: invoiceNumber.trim(),
+        clientId: invoiceClient.id,
+        issueDate: invoiceDate,
+        dueDate: invoiceDueDate,
+        taxRate: parseFloat(invoiceTaxRate) || 0,
+        status: 'Unpaid',
+        amount: totalAmount,
+        notes: ''
+      });
+
       const { data } = await dataClient.models.TimeEntry.list();
       const sorted = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
       setEntries(sorted);
+
+      const { data: refetchedInvs } = await dataClient.models.Invoice.list();
+      const sortedInvs = [...refetchedInvs].sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate));
+      setInvoices(sortedInvs);
     } else {
       const updatedEntries = entries.map(e => {
         if (invoiceIds.includes(e.id)) {
@@ -651,6 +735,21 @@ export default function App() {
       });
       setEntries(updatedEntries);
       saveLocalEntries(currentUser.id, updatedEntries);
+
+      const newInvoice = {
+        id: `invoice-${Date.now()}`,
+        invoiceNumber: invoiceNumber.trim(),
+        clientId: invoiceClient.id,
+        issueDate: invoiceDate,
+        dueDate: invoiceDueDate,
+        taxRate: parseFloat(invoiceTaxRate) || 0,
+        status: 'Unpaid',
+        amount: totalAmount,
+        notes: ''
+      };
+      const updatedInvoices = [newInvoice, ...invoices];
+      setInvoices(updatedInvoices);
+      saveLocalInvoices(currentUser.id, updatedInvoices);
     }
 
     // 3. Reset Modal
@@ -717,6 +816,8 @@ export default function App() {
         padLen = match[2].length;
       }
 
+      const newInvoicesToSaveLocal = [];
+
       for (let i = 0; i < batchInvoiceGroups.length; i++) {
         const { client, entries: groupEntries } = batchInvoiceGroups[i];
         const currentInvNum = `${prefix}${String(startNum + i).padStart(padLen, '0')}`;
@@ -728,6 +829,10 @@ export default function App() {
           taxRate: batchTaxRate
         });
 
+        const subtotal = groupEntries.reduce((sum, entry) => sum + (entry.isBillable !== false ? entry.duration * entry.rate : 0), 0);
+        const tax = subtotal * (parseFloat(batchTaxRate) / 100);
+        const totalAmount = subtotal + tax;
+
         const invoiceIds = groupEntries.map(entry => entry.id);
         if (isAmplifyConfigured) {
           await Promise.all(invoiceIds.map(id => dataClient.models.TimeEntry.update({
@@ -735,6 +840,17 @@ export default function App() {
             status: 'Billed',
             invoiceNumber: currentInvNum
           })));
+
+          await dataClient.models.Invoice.create({
+            invoiceNumber: currentInvNum,
+            clientId: client.id,
+            issueDate: batchDate,
+            dueDate: batchDueDate,
+            taxRate: parseFloat(batchTaxRate) || 0,
+            status: 'Unpaid',
+            amount: totalAmount,
+            notes: ''
+          });
         } else {
           const localEntries = getLocalEntries(currentUser.id);
           const updatedLocal = localEntries.map(le => {
@@ -748,17 +864,39 @@ export default function App() {
             return le;
           });
           saveLocalEntries(currentUser.id, updatedLocal);
+
+          const localInvoice = {
+            id: `invoice-${Date.now()}-${i}`,
+            invoiceNumber: currentInvNum,
+            clientId: client.id,
+            issueDate: batchDate,
+            dueDate: batchDueDate,
+            taxRate: parseFloat(batchTaxRate) || 0,
+            status: 'Unpaid',
+            amount: totalAmount,
+            notes: ''
+          };
+          newInvoicesToSaveLocal.push(localInvoice);
         }
       }
 
       if (isAmplifyConfigured) {
-        const { data } = await dataClient.models.TimeEntry.list();
-        const sorted = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
-        setEntries(sorted);
+        const { data: refetchedEntries } = await dataClient.models.TimeEntry.list();
+        const sortedEntries = [...refetchedEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+        setEntries(sortedEntries);
+
+        const { data: refetchedInvs } = await dataClient.models.Invoice.list();
+        const sortedInvs = [...refetchedInvs].sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate));
+        setInvoices(sortedInvs);
       } else {
-        const localData = getLocalEntries(currentUser.id);
-        const sorted = [...localData].sort((a, b) => new Date(b.date) - new Date(a.date));
-        setEntries(sorted);
+        const localEntries = getLocalEntries(currentUser.id);
+        const sortedEntries = [...localEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+        setEntries(sortedEntries);
+
+        const localInvoices = getLocalInvoices(currentUser.id);
+        const updatedInvoices = [...newInvoicesToSaveLocal, ...localInvoices];
+        setInvoices(updatedInvoices);
+        saveLocalInvoices(currentUser.id, updatedInvoices);
       }
 
       setBatchInvoiceModalOpen(false);
@@ -770,6 +908,108 @@ export default function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleMarkInvoicePaid = async (invoiceId) => {
+    const invoiceToPay = invoices.find(inv => inv.id === invoiceId);
+    if (!invoiceToPay) return;
+
+    setLoading(true);
+    try {
+      if (isAmplifyConfigured) {
+        await dataClient.models.Invoice.update({
+          id: invoiceId,
+          status: 'Paid'
+        });
+
+        const entriesToUpdate = entries.filter(e => e.invoiceNumber === invoiceToPay.invoiceNumber);
+        await Promise.all(entriesToUpdate.map(e => dataClient.models.TimeEntry.update({
+          id: e.id,
+          status: 'Paid'
+        })));
+
+        const { data: refetchedInvs } = await dataClient.models.Invoice.list();
+        const sortedInvs = [...refetchedInvs].sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate));
+        setInvoices(sortedInvs);
+
+        const { data: refetchedEntries } = await dataClient.models.TimeEntry.list();
+        const sortedEntries = [...refetchedEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+        setEntries(sortedEntries);
+      } else {
+        const updatedInvoices = invoices.map(inv => inv.id === invoiceId ? { ...inv, status: 'Paid' } : inv);
+        setInvoices(updatedInvoices);
+        saveLocalInvoices(currentUser.id, updatedInvoices);
+
+        const updatedEntries = entries.map(e => e.invoiceNumber === invoiceToPay.invoiceNumber ? { ...e, status: 'Paid' } : e);
+        setEntries(updatedEntries);
+        saveLocalEntries(currentUser.id, updatedEntries);
+      }
+    } catch (err) {
+      console.error("Failed to mark invoice as paid:", err);
+      alert("An error occurred while updating the invoice payment status.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteInvoice = async (invoiceId) => {
+    const invoiceToDelete = invoices.find(inv => inv.id === invoiceId);
+    if (!invoiceToDelete) return;
+
+    setLoading(true);
+    try {
+      if (isAmplifyConfigured) {
+        await dataClient.models.Invoice.delete({ id: invoiceId });
+
+        const entriesToReset = entries.filter(e => e.invoiceNumber === invoiceToDelete.invoiceNumber);
+        await Promise.all(entriesToReset.map(e => dataClient.models.TimeEntry.update({
+          id: e.id,
+          status: 'Unbilled',
+          invoiceNumber: null
+        })));
+
+        const { data: refetchedInvs } = await dataClient.models.Invoice.list();
+        const sortedInvs = [...refetchedInvs].sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate));
+        setInvoices(sortedInvs);
+
+        const { data: refetchedEntries } = await dataClient.models.TimeEntry.list();
+        const sortedEntries = [...refetchedEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+        setEntries(sortedEntries);
+      } else {
+        const updatedInvoices = invoices.filter(inv => inv.id !== invoiceId);
+        setInvoices(updatedInvoices);
+        saveLocalInvoices(currentUser.id, updatedInvoices);
+
+        const updatedEntries = entries.map(e => e.invoiceNumber === invoiceToDelete.invoiceNumber ? { ...e, status: 'Unbilled', invoiceNumber: null } : e);
+        setEntries(updatedEntries);
+        saveLocalEntries(currentUser.id, updatedEntries);
+      }
+    } catch (err) {
+      console.error("Failed to delete invoice:", err);
+      alert("An error occurred while deleting the invoice.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRedownloadInvoicePDF = (invoiceRecord) => {
+    const client = clients.find(c => c.id === invoiceRecord.clientId);
+    if (!client) {
+      alert("Cannot find the associated client for this invoice.");
+      return;
+    }
+
+    const invoiceEntries = entries.filter(e => e.invoiceNumber === invoiceRecord.invoiceNumber);
+    if (invoiceEntries.length === 0) {
+      alert("No matching time entries found for this invoice. Regenerating PDF with entries matching the invoice number.");
+    }
+
+    generateInvoicePDF(userProfile, client, invoiceEntries, {
+      invoiceNumber: invoiceRecord.invoiceNumber,
+      invoiceDate: invoiceRecord.issueDate,
+      dueDate: invoiceRecord.dueDate,
+      taxRate: invoiceRecord.taxRate
+    });
   };
 
   // Wait until auth is checked
@@ -792,6 +1032,7 @@ export default function App() {
           clients={clients} 
           categories={categories} 
           onLogEntry={handleSaveEntry} 
+          entries={entries}
         />
       </div>
     );
@@ -855,6 +1096,15 @@ export default function App() {
                     {unbilledCount}
                   </span>
                 )}
+              </button>
+            </li>
+            <li>
+              <button 
+                className={`nav-item ${activeTab === 'invoices' ? 'active' : ''}`}
+                onClick={() => setActiveTab('invoices')}
+              >
+                <Receipt size={20} />
+                <span>Invoices</span>
               </button>
             </li>
             <li>
@@ -932,11 +1182,51 @@ export default function App() {
         {/* Header Block */}
         <header className="top-header">
           <div className="page-title">
-            <h1 style={{ textTransform: 'capitalize' }}>{activeTab}</h1>
-            <p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <h1 style={{ textTransform: 'capitalize', margin: 0 }}>{activeTab}</h1>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.35rem', 
+                padding: '0.25rem 0.6rem', 
+                borderRadius: '50px', 
+                backgroundColor: 'rgba(255,255,255,0.03)', 
+                border: '1px solid var(--border-color)',
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                color: 'var(--text-secondary)'
+              }}>
+                <span style={{ 
+                  width: '6px', 
+                  height: '6px', 
+                  borderRadius: '50%', 
+                  backgroundColor: !isAmplifyConfigured 
+                    ? '#818cf8' 
+                    : isOnline 
+                      ? 'var(--color-paid)' 
+                      : 'var(--color-unbilled)',
+                  boxShadow: `0 0 8px ${
+                    !isAmplifyConfigured 
+                      ? 'rgba(129, 140, 248, 0.6)' 
+                      : isOnline 
+                        ? 'rgba(16, 185, 129, 0.6)' 
+                        : 'rgba(245, 158, 11, 0.6)'
+                  }`
+                }} />
+                <span>
+                  {!isAmplifyConfigured 
+                    ? 'Sandbox Mode' 
+                    : isOnline 
+                      ? 'Cloud Synced' 
+                      : 'Offline Mode'}
+                </span>
+              </div>
+            </div>
+            <p style={{ marginTop: '0.25rem' }}>
               {activeTab === 'dashboard' && 'Visual overview of your contract operations, workload, and collections.'}
               {activeTab === 'timer' && 'Track contract hours in real-time or log them using the stopwatch.'}
               {activeTab === 'entries' && 'Filter, search, edit, and invoice your logged time sheets.'}
+              {activeTab === 'invoices' && 'View, search, pay, delete, and re-download generated client invoices.'}
               {activeTab === 'clients' && 'Manage corporate client lists and default hourly rates.'}
               {activeTab === 'categories' && 'Configure custom task categories for accurate segmentation.'}
               {activeTab === 'analytics' && 'Inspect earning breakdowns and work distribution.'}
@@ -965,7 +1255,7 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
               <Dashboard entries={entries} clients={clients} />
               <div className="dashboard-grid">
-                <Timer userId={userIdVal} clients={clients} categories={categories} onLogEntry={handleSaveEntry} />
+                <Timer userId={userIdVal} clients={clients} categories={categories} onLogEntry={handleSaveEntry} entries={entries} />
                 <Analytics entries={entries} clients={clients} />
               </div>
             </div>
@@ -973,7 +1263,7 @@ export default function App() {
           
           {activeTab === 'timer' && (
             <div style={{ maxWidth: '750px', margin: '0 auto' }}>
-              <Timer userId={userIdVal} clients={clients} categories={categories} onLogEntry={handleSaveEntry} />
+              <Timer userId={userIdVal} clients={clients} categories={categories} onLogEntry={handleSaveEntry} entries={entries} />
             </div>
           )}
           
@@ -987,6 +1277,17 @@ export default function App() {
               onUpdateStatus={handleUpdateStatus}
               onGenerateInvoice={handleInitInvoice}
               onGenerateBatchInvoice={handleInitBatchInvoice}
+            />
+          )}
+
+          {activeTab === 'invoices' && (
+            <Invoices 
+              invoices={invoices}
+              clients={clients}
+              entries={entries}
+              onMarkPaid={handleMarkInvoicePaid}
+              onDeleteInvoice={handleDeleteInvoice}
+              onRedownloadPDF={handleRedownloadInvoicePDF}
             />
           )}
 
@@ -1255,6 +1556,13 @@ export default function App() {
         >
           <FileText size={20} />
           <span>Logs</span>
+        </button>
+        <button 
+          className={`mobile-nav-item ${activeTab === 'invoices' ? 'active' : ''}`}
+          onClick={() => setActiveTab('invoices')}
+        >
+          <Receipt size={20} />
+          <span>Invoices</span>
         </button>
         <button 
           className={`mobile-nav-item ${activeTab === 'clients' ? 'active' : ''}`}

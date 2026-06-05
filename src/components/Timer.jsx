@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, Square, Clock, ExternalLink } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Play, Pause, Square, Clock, ExternalLink, AlertCircle } from 'lucide-react';
 import { getTimerState, saveTimerState, getCloudTimerState, saveCloudTimerState } from '../utils/storage';
 import { generateClient } from 'aws-amplify/data';
 import outputs from '../../amplify_outputs.json';
@@ -7,7 +7,7 @@ import outputs from '../../amplify_outputs.json';
 const isAmplifyConfigured = outputs && Object.keys(outputs).length > 0;
 const dataClient = isAmplifyConfigured ? generateClient() : null;
 
-export default function Timer({ userId, clients, categories, onLogEntry }) {
+export default function Timer({ userId, clients, categories, onLogEntry, entries = [] }) {
   const [seconds, setSeconds] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -15,6 +15,72 @@ export default function Timer({ userId, clients, categories, onLogEntry }) {
   const [selectedClientId, setSelectedClientId] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [description, setDescription] = useState('');
+  const [isBillable, setIsBillable] = useState(true);
+
+  const budgetUsage = useMemo(() => {
+    if (!selectedClientId || !entries || entries.length === 0) return null;
+    const client = clients.find(c => c.id === selectedClientId);
+    if (!client || !client.budgetType || client.budgetType === 'none' || !client.budgetLimit) return null;
+    
+    const getStartOfWeek = () => {
+      const today = new Date();
+      const day = today.getDay();
+      const diff = today.getDate() - day;
+      const sunday = new Date(today.getFullYear(), today.getMonth(), diff);
+      sunday.setHours(0, 0, 0, 0);
+      return sunday;
+    };
+    
+    const getStartOfMonth = () => {
+      const today = new Date();
+      return new Date(today.getFullYear(), today.getMonth(), 1);
+    };
+    
+    const period = client.budgetPeriod || 'total';
+    let filterDate = null;
+    if (period === 'weekly') {
+      filterDate = getStartOfWeek();
+    } else if (period === 'monthly') {
+      filterDate = getStartOfMonth();
+    }
+    
+    let sum = 0;
+    entries.forEach(entry => {
+      if (entry.clientId !== client.id) return;
+      
+      if (filterDate) {
+        const [y, m, d] = entry.date.split('-').map(Number);
+        const entryDate = new Date(y, m - 1, d);
+        if (entryDate < filterDate) return;
+      }
+      
+      if (client.budgetType === 'hours') {
+        sum += entry.duration;
+      } else if (client.budgetType === 'revenue') {
+        sum += entry.isBillable !== false ? entry.duration * entry.rate : 0;
+      }
+    });
+    
+    if (isActive && !isPaused && seconds > 0) {
+      const currentHours = seconds / 3600;
+      if (client.budgetType === 'hours') {
+        sum += currentHours;
+      } else if (client.budgetType === 'revenue' && isBillable) {
+        sum += currentHours * client.defaultRate;
+      }
+    }
+    
+    const limit = client.budgetLimit;
+    const percent = limit > 0 ? (sum / limit) * 100 : 0;
+    
+    return {
+      sum,
+      limit,
+      percent,
+      type: client.budgetType,
+      period
+    };
+  }, [selectedClientId, entries, clients, seconds, isActive, isPaused, isBillable]);
   
   const countRef = useRef(null);
   const debounceRef = useRef(null);
@@ -66,7 +132,8 @@ export default function Timer({ userId, clients, categories, onLogEntry }) {
             isPaused: cloudState.isPaused,
             clientId: cloudState.clientId || '',
             category: cloudState.category || '',
-            description: cloudState.description || ''
+            description: cloudState.description || '',
+            isBillable: cloudState.isBillable !== false
           };
           
           const localState = getTimerState(userId);
@@ -77,7 +144,8 @@ export default function Timer({ userId, clients, categories, onLogEntry }) {
               localState.isPaused !== restoredState.isPaused ||
               localState.clientId !== restoredState.clientId ||
               localState.category !== restoredState.category ||
-              localState.description !== restoredState.description) {
+              localState.description !== restoredState.description ||
+              localState.isBillable !== restoredState.isBillable) {
             
             saveTimerState(userId, restoredState);
             syncFromStorage();
@@ -117,6 +185,7 @@ export default function Timer({ userId, clients, categories, onLogEntry }) {
       setSelectedClientId(state.clientId || '');
       setSelectedCategory(state.category || '');
       setDescription(state.description || '');
+      setIsBillable(state.isBillable !== false);
 
       if (state.isRunning && !state.isPaused && state.startTime) {
         const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
@@ -129,6 +198,7 @@ export default function Timer({ userId, clients, categories, onLogEntry }) {
       setIsPaused(false);
       setSeconds(0);
       setDescription('');
+      setIsBillable(true);
       if (clients.length > 0) setSelectedClientId(clients[0].id);
       if (categories.length > 0) setSelectedCategory(categories[0]);
     }
@@ -174,7 +244,8 @@ export default function Timer({ userId, clients, categories, onLogEntry }) {
       isPaused: false,
       clientId: selectedClientId,
       category: selectedCategory,
-      description
+      description,
+      isBillable
     };
     saveState(newState);
     setIsActive(true);
@@ -192,7 +263,8 @@ export default function Timer({ userId, clients, categories, onLogEntry }) {
         isPaused: true,
         clientId: selectedClientId,
         category: selectedCategory,
-        description
+        description,
+        isBillable
       };
     } else {
       newState = {
@@ -202,7 +274,8 @@ export default function Timer({ userId, clients, categories, onLogEntry }) {
         isPaused: false,
         clientId: selectedClientId,
         category: selectedCategory,
-        description
+        description,
+        isBillable
       };
     }
     saveState(newState);
@@ -239,7 +312,8 @@ export default function Timer({ userId, clients, categories, onLogEntry }) {
       rate: client.defaultRate,
       description: description || 'Timer log entry',
       date: new Date().toISOString().split('T')[0],
-      status: 'Unbilled'
+      status: 'Unbilled',
+      isBillable
     });
 
     handleReset();
@@ -286,9 +360,39 @@ export default function Timer({ userId, clients, categories, onLogEntry }) {
         )}
       </div>
 
-      <div className="timer-display-container" style={{ margin: isPopout ? '2rem 0' : '' }}>
+      {budgetUsage && budgetUsage.percent >= 90 && (
+        <div style={{ 
+          padding: '0.75rem 1rem', 
+          backgroundColor: budgetUsage.percent >= 100 ? 'rgba(239, 68, 68, 0.12)' : 'rgba(245, 158, 11, 0.12)', 
+          border: `1px solid ${budgetUsage.percent >= 100 ? 'var(--color-danger)' : 'var(--color-unbilled)'}`, 
+          borderRadius: 'var(--radius-md)', 
+          color: budgetUsage.percent >= 100 ? 'var(--color-danger)' : 'var(--color-unbilled)',
+          fontSize: '0.85rem', 
+          fontWeight: 600, 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '0.5rem',
+          marginBottom: '1rem',
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          <AlertCircle size={16} style={{ flexShrink: 0 }} />
+          <span>
+            {budgetUsage.percent >= 100 ? 'Cap Exceeded: ' : 'Budget Alert: '}
+            {clients.find(c => c.id === selectedClientId)?.name} is at {budgetUsage.percent.toFixed(0)}% of {budgetUsage.period} {budgetUsage.type} limit ({budgetUsage.sum.toFixed(1)} / {budgetUsage.limit} {budgetUsage.type === 'hours' ? 'hrs' : '$'}).
+          </span>
+        </div>
+      )}
+
+      <div className="timer-display-container" style={{ margin: isPopout ? '2rem 0' : '', paddingBottom: '0.5rem' }}>
         <div className={`timer-pulse-circle ${isActive && !isPaused ? 'active' : ''}`} />
-        <div className="timer-digits" style={{ fontSize: isPopout ? '3.5rem' : '2.8rem' }}>{formatTime(seconds)}</div>
+        <div className="timer-digits" style={{ fontSize: isPopout ? '3.5rem' : '2.8rem', marginBottom: '0.25rem' }}>{formatTime(seconds)}</div>
+        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: isBillable ? 'var(--color-primary)' : 'var(--text-muted)', zIndex: 1 }}>
+          {isBillable ? (
+            <span>Billable ({clients.find(c => c.id === selectedClientId)?.defaultRate ? `$${clients.find(c => c.id === selectedClientId).defaultRate}/hr` : '—'})</span>
+          ) : (
+            <span style={{ textDecoration: 'line-through' }}>Non-Billable ($0.00/hr)</span>
+          )}
+        </div>
       </div>
 
       <div className="timer-controls" style={{ justifyContent: 'center', marginBottom: '1.5rem' }}>
@@ -385,6 +489,30 @@ export default function Timer({ userId, clients, categories, onLogEntry }) {
               }
             }}
           />
+        </div>
+
+        <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+          <input 
+            type="checkbox" 
+            id="timer-billable-toggle" 
+            checked={isBillable} 
+            onChange={(e) => {
+              const nextVal = e.target.checked;
+              setIsBillable(nextVal);
+              if (isActive) {
+                const state = getTimerState(userId);
+                if (state) {
+                  state.isBillable = nextVal;
+                  saveState(state);
+                }
+              }
+            }}
+            disabled={isActive}
+            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+          />
+          <label htmlFor="timer-billable-toggle" style={{ cursor: 'pointer', userSelect: 'none', fontWeight: 500 }}>
+            This work is billable
+          </label>
         </div>
       </div>
     </div>

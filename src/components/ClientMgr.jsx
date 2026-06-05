@@ -11,6 +11,10 @@ export default function ClientMgr({ clients, onAddClient, onUpdateClient, onDele
   const [defaultRate, setDefaultRate] = useState('');
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
+  const [roundingRule, setRoundingRule] = useState('default');
+  const [budgetType, setBudgetType] = useState('none');
+  const [budgetLimit, setBudgetLimit] = useState('');
+  const [budgetPeriod, setBudgetPeriod] = useState('none');
 
   const openAddModal = () => {
     setEditingClient(null);
@@ -19,6 +23,10 @@ export default function ClientMgr({ clients, onAddClient, onUpdateClient, onDele
     setDefaultRate('100');
     setAddress('');
     setNotes('');
+    setRoundingRule('default');
+    setBudgetType('none');
+    setBudgetLimit('');
+    setBudgetPeriod('none');
     setIsModalOpen(true);
   };
 
@@ -29,6 +37,10 @@ export default function ClientMgr({ clients, onAddClient, onUpdateClient, onDele
     setDefaultRate(client.defaultRate.toString());
     setAddress(client.address || '');
     setNotes(client.notes || '');
+    setRoundingRule(client.roundingRule || 'default');
+    setBudgetType(client.budgetType || 'none');
+    setBudgetLimit(client.budgetLimit ? client.budgetLimit.toString() : '');
+    setBudgetPeriod(client.budgetPeriod || 'none');
     setIsModalOpen(true);
   };
 
@@ -44,12 +56,18 @@ export default function ClientMgr({ clients, onAddClient, onUpdateClient, onDele
       return;
     }
 
+    const limitVal = parseFloat(budgetLimit);
+
     const payload = {
       name: name.trim(),
       email: email.trim(),
       defaultRate: rateVal,
       address: address.trim(),
-      notes: notes.trim()
+      notes: notes.trim(),
+      roundingRule,
+      budgetType,
+      budgetLimit: isNaN(limitVal) ? null : limitVal,
+      budgetPeriod
     };
 
     if (editingClient) {
@@ -181,6 +199,66 @@ export default function ClientMgr({ clients, onAddClient, onUpdateClient, onDele
                   value={defaultRate} 
                   onChange={(e) => setDefaultRate(e.target.value)} 
                 />
+              </div>
+
+              <div className="form-group">
+                <label>Time Rounding Configuration</label>
+                <select 
+                  className="select-field"
+                  value={roundingRule}
+                  onChange={(e) => setRoundingRule(e.target.value)}
+                >
+                  <option value="default">Use profile default</option>
+                  <option value="none">None (Raw Time)</option>
+                  <option value="nearest_6">Nearest 6 Minutes (0.1h)</option>
+                  <option value="nearest_15">Nearest 15 Minutes (0.25h)</option>
+                  <option value="nearest_30">Nearest 30 Minutes (0.5h)</option>
+                  <option value="ceil_15">Round Up to Nearest 15 Minutes</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Budget Type</label>
+                  <select 
+                    className="select-field"
+                    value={budgetType}
+                    onChange={(e) => setBudgetType(e.target.value)}
+                  >
+                    <option value="none">No Cap</option>
+                    <option value="hours">Hours Limit</option>
+                    <option value="revenue">Revenue Cap</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Budget Period</label>
+                  <select 
+                    className="select-field"
+                    value={budgetPeriod}
+                    onChange={(e) => setBudgetPeriod(e.target.value)}
+                    disabled={budgetType === 'none'}
+                  >
+                    <option value="none">No Period</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="total">Total / Lifetime</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Limit Value</label>
+                  <input 
+                    type="number"
+                    className="input-field"
+                    placeholder={budgetType === 'none' ? '—' : budgetType === 'hours' ? 'e.g. 40' : 'e.g. 5000'}
+                    value={budgetLimit}
+                    onChange={(e) => setBudgetLimit(e.target.value)}
+                    disabled={budgetType === 'none'}
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
               </div>
 
               <div className="form-group">

@@ -27,7 +27,7 @@ export default function Analytics({ entries, clients }) {
     let grandTotalHours = 0;
 
     entries.forEach(e => {
-      const amount = e.duration * e.rate;
+      const amount = e.isBillable !== false ? e.duration * e.rate : 0;
       grandTotalEarnings += amount;
       grandTotalHours += e.duration;
       

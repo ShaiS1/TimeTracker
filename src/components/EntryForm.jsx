@@ -8,6 +8,7 @@ export default function EntryForm({ clients, categories, onLogEntry, initialValu
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState('Unbilled');
+  const [isBillable, setIsBillable] = useState(true);
 
   // Pre-fill fields if we are editing an existing entry
   useEffect(() => {
@@ -18,7 +19,9 @@ export default function EntryForm({ clients, categories, onLogEntry, initialValu
       setDate(initialValues.date || new Date().toISOString().split('T')[0]);
       setDescription(initialValues.description || '');
       setStatus(initialValues.status || 'Unbilled');
+      setIsBillable(initialValues.isBillable !== false);
     } else {
+      setIsBillable(true);
       if (clients.length > 0) setClientId(clients[0].id);
       if (categories.length > 0) setCategory(categories[0]);
     }
@@ -50,7 +53,8 @@ export default function EntryForm({ clients, categories, onLogEntry, initialValu
       rate,
       date,
       description: description.trim() || 'No description provided.',
-      status
+      status,
+      isBillable
     };
 
     if (initialValues?.id) {
@@ -67,6 +71,7 @@ export default function EntryForm({ clients, categories, onLogEntry, initialValu
       setDuration('');
       setDescription('');
       setDate(new Date().toISOString().split('T')[0]);
+      setIsBillable(true);
     }
   };
 
@@ -147,6 +152,19 @@ export default function EntryForm({ clients, categories, onLogEntry, initialValu
           value={description} 
           onChange={(e) => setDescription(e.target.value)}
         />
+      </div>
+
+      <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+        <input 
+          type="checkbox" 
+          id="form-billable-toggle" 
+          checked={isBillable} 
+          onChange={(e) => setIsBillable(e.target.checked)}
+          style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+        />
+        <label htmlFor="form-billable-toggle" style={{ cursor: 'pointer', userSelect: 'none', fontWeight: 500 }}>
+          This work is billable
+        </label>
       </div>
 
       {initialValues && (

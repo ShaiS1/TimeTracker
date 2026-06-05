@@ -9,7 +9,8 @@ const STORAGE_KEYS = {
   CLIENTS_PREFIX: 'tempo_clients_',
   CATEGORIES_PREFIX: 'tempo_categories_',
   ENTRIES_PREFIX: 'tempo_entries_',
-  USER_PROFILE_PREFIX: 'tempo_user_profile_'
+  USER_PROFILE_PREFIX: 'tempo_user_profile_',
+  INVOICES_PREFIX: 'tempo_invoices_'
 };
 
 const DEFAULT_CATEGORIES = [
@@ -137,7 +138,8 @@ const getDefaultProfile = (name = 'Contractor') => ({
   company: '',
   address: '',
   paymentDetails: '',
-  taxRate: 0
+  taxRate: 0,
+  defaultRounding: 'none'
 });
 
 // Users DB operations
@@ -231,6 +233,9 @@ export const initializeUserStorage = (userId) => {
     const user = getUsers().find(u => u.id === userId);
     localStorage.setItem(STORAGE_KEYS.USER_PROFILE_PREFIX + userId, JSON.stringify(getDefaultProfile(user?.name)));
   }
+  if (!localStorage.getItem(STORAGE_KEYS.INVOICES_PREFIX + userId)) {
+    localStorage.setItem(STORAGE_KEYS.INVOICES_PREFIX + userId, JSON.stringify([]));
+  }
 };
 
 // Clients CRUD (Namespaced)
@@ -281,6 +286,18 @@ export const saveUserProfile = (userId, profile) => {
   localStorage.setItem(STORAGE_KEYS.USER_PROFILE_PREFIX + userId, JSON.stringify(profile));
 };
 
+// Invoices CRUD (Namespaced)
+export const getInvoices = (userId) => {
+  if (!userId) return [];
+  initializeUserStorage(userId);
+  return JSON.parse(localStorage.getItem(STORAGE_KEYS.INVOICES_PREFIX + userId)) || [];
+};
+
+export const saveInvoices = (userId, invoices) => {
+  if (!userId) return;
+  localStorage.setItem(STORAGE_KEYS.INVOICES_PREFIX + userId, JSON.stringify(invoices));
+};
+
 // Theme helper
 export const getTheme = () => {
   return localStorage.getItem(STORAGE_KEYS.THEME) || 'dark';
@@ -292,25 +309,36 @@ export const saveTheme = (theme) => {
 
 // Import/Export full state (namespaced by user)
 export const exportBackup = (userId) => {
-  if (!userId) return '';
+  const activeUserId = userId || getCurrentUser()?.id;
+  if (!activeUserId) return '';
   const data = {
-    clients: getClients(userId),
-    categories: getCategories(userId),
-    entries: getEntries(userId),
-    userProfile: getUserProfile(userId)
+    clients: getClients(activeUserId),
+    categories: getCategories(activeUserId),
+    entries: getEntries(activeUserId),
+    userProfile: getUserProfile(activeUserId),
+    invoices: getInvoices(activeUserId)
   };
   return JSON.stringify(data, null, 2);
 };
 
 export const importBackup = (userId, jsonString) => {
-  if (!userId) return false;
+  let activeUserId = userId;
+  let activeJsonString = jsonString;
+  if (typeof jsonString === 'undefined' || jsonString === null) {
+    activeUserId = getCurrentUser()?.id;
+    activeJsonString = userId;
+  }
+  if (!activeUserId) return false;
   try {
-    const data = JSON.parse(jsonString);
+    const data = JSON.parse(activeJsonString);
     if (data.clients && data.categories && data.entries && data.userProfile) {
-      saveClients(userId, data.clients);
-      saveCategories(userId, data.categories);
-      saveEntries(userId, data.entries);
-      saveUserProfile(userId, data.userProfile);
+      saveClients(activeUserId, data.clients);
+      saveCategories(activeUserId, data.categories);
+      saveEntries(activeUserId, data.entries);
+      saveUserProfile(activeUserId, data.userProfile);
+      if (data.invoices) {
+        saveInvoices(activeUserId, data.invoices);
+      }
       return true;
     }
   } catch (e) {
@@ -360,6 +388,7 @@ export const saveCloudTimerState = async (dataClient, state) => {
         accumulatedSeconds: parseFloat(state.accumulatedSeconds || 0),
         isRunning: !!state.isRunning,
         isPaused: !!state.isPaused,
+        isBillable: state.isBillable !== false,
       };
 
       if (existing.length > 0) {

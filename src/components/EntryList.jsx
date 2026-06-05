@@ -91,7 +91,7 @@ export default function EntryList({ entries, clients, userProfile, onDeleteEntry
     let amount = 0;
     filteredEntries.forEach(e => {
       hours += e.duration;
-      amount += e.duration * e.rate;
+      amount += e.isBillable !== false ? e.duration * e.rate : 0;
     });
     return { hours, amount };
   }, [filteredEntries]);
@@ -374,12 +374,27 @@ export default function EntryList({ entries, clients, userProfile, onDeleteEntry
                       </div>
                     </td>
                     <td style={{ fontFeatureSettings: "tnum" }}>{entry.duration.toFixed(2)}h</td>
-                    <td style={{ fontWeight: 600, fontFeatureSettings: "tnum" }}>{formatCurrency(entry.duration * entry.rate)}</td>
+                    <td style={{ fontWeight: 600, fontFeatureSettings: "tnum", color: entry.isBillable !== false ? '' : 'var(--text-muted)' }}>
+                      {entry.isBillable !== false ? (
+                        formatCurrency(entry.duration * entry.rate)
+                      ) : (
+                        <span style={{ textDecoration: 'line-through', opacity: 0.6 }}>
+                          {formatCurrency(entry.duration * entry.rate)}
+                        </span>
+                      )}
+                    </td>
                     <td>
-                      <span className={`badge badge-${entry.status.toLowerCase()}`}>
-                        {entry.status}
-                        {entry.invoiceNumber && <span style={{ fontSize: '0.7rem', opacity: 0.7, marginLeft: '2px' }}>({entry.invoiceNumber})</span>}
-                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'flex-start' }}>
+                        <span className={`badge badge-${entry.status.toLowerCase()}`}>
+                          {entry.status}
+                          {entry.invoiceNumber && <span style={{ fontSize: '0.7rem', opacity: 0.7, marginLeft: '2px' }}>({entry.invoiceNumber})</span>}
+                        </span>
+                        {entry.isBillable === false && (
+                          <span className="badge" style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', border: '1px solid var(--border-color)', fontSize: '0.65rem', padding: '0.1rem 0.35rem' }}>
+                            Non-Billable
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td style={{ textAlign: 'right', paddingRight: '1.25rem' }}>
                       <div className="cell-actions" style={{ justifyContent: 'flex-end' }}>
@@ -432,7 +447,7 @@ export default function EntryList({ entries, clients, userProfile, onDeleteEntry
                     </strong>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <strong style={{ fontSize: '0.95rem', color: 'var(--color-paid)', fontFeatureSettings: "tnum" }}>
+                    <strong style={{ fontSize: '0.95rem', color: entry.isBillable !== false ? 'var(--color-paid)' : 'var(--text-muted)', fontFeatureSettings: "tnum", textDecoration: entry.isBillable !== false ? 'none' : 'line-through' }}>
                       {formatCurrency(entry.duration * entry.rate)}
                     </strong>
                   </div>
@@ -453,10 +468,17 @@ export default function EntryList({ entries, clients, userProfile, onDeleteEntry
 
                 {/* Row 4: Status Badge and Actions */}
                 <div className="mobile-card-row" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.6rem', marginTop: '0.2rem' }}>
-                  <span className={`badge badge-${entry.status.toLowerCase()}`} style={{ fontSize: '0.7rem' }}>
-                    {entry.status}
-                    {entry.invoiceNumber && <span style={{ fontSize: '0.6rem', opacity: 0.7, marginLeft: '2px' }}>({entry.invoiceNumber})</span>}
-                  </span>
+                  <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                    <span className={`badge badge-${entry.status.toLowerCase()}`} style={{ fontSize: '0.7rem' }}>
+                      {entry.status}
+                      {entry.invoiceNumber && <span style={{ fontSize: '0.6rem', opacity: 0.7, marginLeft: '2px' }}>({entry.invoiceNumber})</span>}
+                    </span>
+                    {entry.isBillable === false && (
+                      <span className="badge" style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', border: '1px solid var(--border-color)', fontSize: '0.65rem', padding: '0.05rem 0.3rem' }}>
+                        Non-Billable
+                      </span>
+                    )}
+                  </div>
                   
                   <div className="cell-actions">
                     <button className="btn btn-secondary btn-icon-only btn-sm" onClick={() => onEditEntry(entry)}>

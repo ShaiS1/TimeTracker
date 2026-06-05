@@ -7,6 +7,10 @@ const schema = a.schema({
     defaultRate: a.float().required(),
     address: a.string(),
     notes: a.string(),
+    roundingRule: a.string(),
+    budgetType: a.string(), // 'hours', 'revenue', or 'none'
+    budgetLimit: a.float(),
+    budgetPeriod: a.string(), // 'weekly', 'monthly', 'total', or 'none'
   }).authorization((allow) => [allow.owner()]),
 
   Category: a.model({
@@ -22,6 +26,7 @@ const schema = a.schema({
     description: a.string().required(),
     status: a.string().required(),
     invoiceNumber: a.string(),
+    isBillable: a.boolean(),
   }).authorization((allow) => [allow.owner()]),
 
   UserProfile: a.model({
@@ -31,6 +36,7 @@ const schema = a.schema({
     address: a.string(),
     paymentDetails: a.string(),
     taxRate: a.float(),
+    defaultRounding: a.string(),
   }).authorization((allow) => [allow.owner()]),
 
   ActiveTimer: a.model({
@@ -41,6 +47,18 @@ const schema = a.schema({
     accumulatedSeconds: a.float().required(),
     isRunning: a.boolean().required(),
     isPaused: a.boolean().required(),
+    isBillable: a.boolean(),
+  }).authorization((allow) => [allow.owner()]),
+
+  Invoice: a.model({
+    invoiceNumber: a.string().required(),
+    clientId: a.string().required(),
+    issueDate: a.string().required(),
+    dueDate: a.string().required(),
+    taxRate: a.float().required(),
+    status: a.string().required(), // 'Unpaid', 'Paid', 'Overdue'
+    amount: a.float().required(),
+    notes: a.string(),
   }).authorization((allow) => [allow.owner()]),
 });
 

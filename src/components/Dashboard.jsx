@@ -40,7 +40,7 @@ export default function Dashboard({ entries, clients }) {
 
   entries.forEach(entry => {
     const entryDate = parseEntryDate(entry.date);
-    const amount = entry.duration * entry.rate;
+    const amount = entry.isBillable !== false ? entry.duration * entry.rate : 0;
     
     // Totals
     totalHours += entry.duration;
@@ -161,6 +161,80 @@ export default function Dashboard({ entries, clients }) {
             {((weekHours / 40) * 100).toFixed(0)}% of 40h weekly target
           </span>
         </div>
+
+        {clients.filter(c => c.budgetType && c.budgetType !== 'none' && c.budgetLimit).length > 0 && (
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', gridColumn: '1 / -1' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Client Budget & Retainer Limits</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginTop: '0.5rem' }}>
+              {clients.filter(c => c.budgetType && c.budgetType !== 'none' && c.budgetLimit).map(client => {
+                let usage = 0;
+                let filterDate = null;
+                const period = client.budgetPeriod || 'total';
+                if (period === 'weekly') {
+                  filterDate = startOfWeek;
+                } else if (period === 'monthly') {
+                  filterDate = startOfMonth;
+                }
+                
+                entries.forEach(e => {
+                  if (e.clientId !== client.id) return;
+                  if (filterDate) {
+                    const entryDate = parseEntryDate(e.date);
+                    if (entryDate < filterDate) return;
+                  }
+                  
+                  if (client.budgetType === 'hours') {
+                    usage += e.duration;
+                  } else if (client.budgetType === 'revenue') {
+                    usage += e.isBillable !== false ? e.duration * e.rate : 0;
+                  }
+                });
+                
+                const limit = client.budgetLimit;
+                const percent = limit > 0 ? (usage / limit) * 100 : 0;
+                
+                let barColor = 'var(--color-paid)';
+                if (percent >= 100) {
+                  barColor = 'var(--color-danger)';
+                } else if (percent >= 75) {
+                  barColor = 'var(--color-unbilled)';
+                }
+                
+                return (
+                  <div key={client.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', padding: '0.75rem', backgroundColor: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, fontSize: '0.85rem' }}>
+                      <span style={{ color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client.name}</span>
+                      <span style={{ color: barColor }}>{percent.toFixed(0)}%</span>
+                    </div>
+                    
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>
+                      {period} {client.budgetType === 'hours' ? 'hours limit' : 'revenue cap'}
+                    </div>
+                    
+                    <div className="progress-bar-track" style={{ marginTop: '0.25rem', height: '6px' }}>
+                      <div 
+                        className="progress-bar-fill" 
+                        style={{ 
+                          width: `${Math.min(100, percent)}%`,
+                          backgroundColor: barColor 
+                        }} 
+                      />
+                    </div>
+                    
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+                      <span>
+                        {client.budgetType === 'hours' ? `${usage.toFixed(1)} hrs` : formatCurrency(usage)}
+                      </span>
+                      <span>
+                        Limit: {client.budgetType === 'hours' ? `${limit.toFixed(1)} hrs` : formatCurrency(limit)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
