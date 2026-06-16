@@ -22,6 +22,9 @@ This document tracks the feature roadmap, active task list, completed milestones
 | **Invoice Email Integration** | Send PDF invoices directly to client emails from the app | 📋 Planned | v2.1.0 |
 | **Timer Idle Detection** | Prompt user to discard or resume if timer runs but no keyboard/mouse activity is detected | 📋 Planned | v2.2.0 |
 | **Gusto Invoice Sync** | Link contractor invoices directly with Gusto payroll for client approval and auto-payment sync | 📋 Planned | v2.3.0 |
+| **Tax Estimator** | Suggest monthly tax reserves for 1099 independent contractors based on current tax settings | 📋 Planned | v2.3.0 |
+| **Recurring/Pinned Elements** | Support pinning favorite clients or frequently used categories | 📋 Planned | v2.3.0 |
+| **Saved Filters** | Support saving custom views (e.g., "Current Month Unbilled Work", "Client-Specific Views") | 📋 Planned | v2.3.0 |
 
 ---
 
@@ -154,9 +157,6 @@ This document tracks the feature roadmap, active task list, completed milestones
 * **Clickable Analytics**: Enable interactive charts (e.g., clicking on a client's slice in a pie chart filters the Time Logs view).
 
 ### Future Roadmap Ideas (Backlog)
-* **Tax Estimator**: Suggest monthly tax reserves for 1099 independent contractors based on current tax settings.
-* **Recurring/Pinned Elements**: Support pinning favorite clients or frequently used categories.
-* **Saved Filters**: Support saving custom views (e.g., "Current Month Unbilled Work", "Client-Specific Views").
 * **Client Portal**: Future portal allowing clients to view report sheets, download PDF invoices, and review logs directly.
 * **Team Support**: Multi-contractor support with manager review and approval workflows.
 * **Gusto Payments Sync**: Link contractor invoices directly with Gusto contractor payroll:
