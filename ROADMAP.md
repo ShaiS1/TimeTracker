@@ -89,36 +89,36 @@ This document tracks the feature roadmap, active task list, completed milestones
 
 ---
 
-## 📅 Upcoming Sprints (Detailed Planning Outline)
+## 📅 Completed Sprints (Archived Planning Outline)
 
-*Note: This is an initial planning outline for upcoming fixes and enhancements. Development has not yet started.*
+*Note: These sprints have been fully implemented in releases v1.1.0 through v1.5.0.*
 
-### Sprint 1: Authentication, Security & Customization
+### Sprint 1: Authentication, Security & Customization (Completed in v1.1.0 / v1.4.0)
 * **Finish Authentication**: Refine registration, login, session recovery, and secure logout flows.
 * **Password Reset**: Implement AWS Cognito password recovery and reset flows.
 * **Session Management**: Handle session timeouts, token refreshments, and logouts.
 * **Data Isolation Review**: Perform security checks on owner-based AppSync data partitions (ensuring users only see their own Clients, Categories, TimeEntries, and Profiles).
 * **Cognito Email Customization**: Configure custom verification and password reset email templates matching Tempo branding.
 
-### Sprint 2: Timer Persistence & Reliability (Highest Priority)
+### Sprint 2: Timer Persistence & Reliability (Completed in v1.4.0)
 * **Timer Persistence**: Save active stopwatch timer state in the cloud/database so it survives browser crashes, refreshes, device sleep, and network interruptions.
 * **Browser Refresh Recovery**: Recover active running timers automatically after a page refresh.
 * **Session Recovery**: Seamlessly restore active timer state and session details on reopening the application.
 * **Active Timer Safeguards**: Prevent accidental navigation or logging of invalid timer states, ensuring billable hours are never at risk.
 * **Offline-First Resilience**: Implement local mutations caching and sync to handle transient network dropouts seamlessly.
 
-### Sprint 3: Mobile Experience Companion
+### Sprint 3: Mobile Experience Companion (Completed in v1.4.0)
 * **Mobile Strategy**: Do not replicate the full desktop interface. Focus on mobile as a quick reference companion.
 * **Mobile Dashboard**: Focus on key metrics (Today's Hours, Active Timer, Weekly Hours, Unbilled Earnings, and Recent Entries), avoiding large tables.
 * **Mobile Quick Actions**: Allow starting, stopping, pausing timers, viewing today's work, and quick-adding time entries.
 
-### Sprint 4: Reporting, Invoicing & Branding
+### Sprint 4: Reporting, Invoicing & Branding (Completed in v1.4.0)
 * **PDF Invoice Improvements**: Enhance page breaks, layout fonts, notes sections, and formatting.
 * **Branding**: Further polish logos, invoice styling, company branding, and custom colors.
 * **Export Improvements**: Support exporting timesheets to PDF, Excel, and CSV (including contractor name, period, hours, and amount due).
 * **Bulk Actions**: Support marking selected entries as billed/paid, generating batch invoices, and bulk exporting entries.
 
-### Sprint 5: Invoices Registry, Budgets & Rounding (Completed)
+### Sprint 5: Invoices Registry, Budgets & Rounding (Completed in v1.5.0)
 * **Invoice Registry & Payment Tracking**: Create an Invoices tab to manage unpaid, overdue, and paid invoices, and quickly re-download past PDF invoices.
 * **Billable vs. Non-Billable Switch**: Add a billable toggle on stopwatch/logs to track non-billable hours at a $0 rate while keeping them in productivity stats.
 * **Hour Rounding Rules**: Global or client-specific time-rounding configurations (e.g. round to nearest 6, 15, or 30 minutes).
