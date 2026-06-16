@@ -21,7 +21,6 @@ This document tracks the feature roadmap, active task list, completed milestones
 | **Invoices Registry & Limits** | Invoice Registry, payment states, billable toggles, client budget caps, rounding rules, sync status dot | ✅ Completed | v1.5.0 |
 | **Invoice Email Integration** | Send PDF invoices directly to client emails from the app | 📋 Planned | v2.1.0 |
 | **Timer Idle Detection** | Prompt user to discard or resume if timer runs but no keyboard/mouse activity is detected | 📋 Planned | v2.2.0 |
-| **Gusto Invoice Sync** | Link contractor invoices directly with Gusto payroll for client approval and auto-payment sync | 📋 Planned | v2.3.0 |
 | **Tax Estimator** | Suggest monthly tax reserves for 1099 independent contractors based on current tax settings | 📋 Planned | v2.3.0 |
 | **Recurring/Pinned Elements** | Support pinning favorite clients or frequently used categories | 📋 Planned | v2.3.0 |
 | **Saved Filters** | Support saving custom views (e.g., "Current Month Unbilled Work", "Client-Specific Views") | 📋 Planned | v2.3.0 |
@@ -159,7 +158,7 @@ This document tracks the feature roadmap, active task list, completed milestones
 ### Future Roadmap Ideas (Backlog)
 * **Client Portal**: Future portal allowing clients to view report sheets, download PDF invoices, and review logs directly.
 * **Team Support**: Multi-contractor support with manager review and approval workflows.
-* **Gusto Payments Sync**: Link contractor invoices directly with Gusto contractor payroll:
+* **Gusto Invoice & Payments Sync** (Deferred): Link contractor invoices and payments directly with Gusto contractor payroll (moved to backlog as API key access may be restricted for hobby projects):
   * Connect Gusto company account via secure OAuth2 authorization.
   * Map Tempo Client profiles to Gusto `contractor_uuid` values.
   * Send invoices directly to Gusto as payment groups with preview estimates.
