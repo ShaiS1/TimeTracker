@@ -19,11 +19,11 @@ This document tracks the feature roadmap, active task list, completed milestones
 | **Pop-out Timer Window** | Standalone popout tracker window with cross-tab sync | ✅ Completed | v1.3.0 |
 | **Cloud Database Sync** | Server sync using AWS Amplify Gen 2 for persistent cloud storage and cross-device sync | ✅ Completed | v1.4.0 |
 | **Invoices Registry & Limits** | Invoice Registry, payment states, billable toggles, client budget caps, rounding rules, sync status dot | ✅ Completed | v1.5.0 |
-| **Invoice Email Integration** | Send PDF invoices directly to client emails from the app | 📋 Planned | v2.1.0 |
-| **Timer Idle Detection** | Prompt user to discard or resume if timer runs but no keyboard/mouse activity is detected | 📋 Planned | v2.2.0 |
-| **Tax Estimator** | Suggest monthly tax reserves for 1099 independent contractors based on current tax settings | 📋 Planned | v2.3.0 |
-| **Recurring/Pinned Elements** | Support pinning favorite clients or frequently used categories | 📋 Planned | v2.3.0 |
-| **Saved Filters** | Support saving custom views (e.g., "Current Month Unbilled Work", "Client-Specific Views") | 📋 Planned | v2.3.0 |
+| **Timer Idle Detection** | Prompt user to discard or resume if timer runs but no keyboard/mouse activity is detected | 📋 Planned | v2.1.0 |
+| **Recurring/Pinned Elements** | Support pinning favorite clients or frequently used categories | 📋 Planned | v2.1.0 |
+| **Saved Filters** | Support saving custom views (e.g., "Current Month Unbilled Work", "Client-Specific Views") | 📋 Planned | v2.1.0 |
+| **Tax Estimator** | Suggest monthly tax reserves for 1099 independent contractors based on current tax settings | 📋 Planned | v2.2.0 |
+| **Invoice Email Integration** | Send PDF invoices directly to client emails from the app | 📋 Planned | v2.2.0 |
 
 ---
 
