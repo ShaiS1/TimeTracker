@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Mail, MapPin, DollarSign, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Mail, MapPin, DollarSign, X, Pin } from 'lucide-react';
 
-export default function ClientMgr({ clients, onAddClient, onUpdateClient, onDeleteClient }) {
+export default function ClientMgr({ clients, onAddClient, onUpdateClient, onDeleteClient, onTogglePinClient }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   
@@ -115,7 +115,19 @@ export default function ClientMgr({ clients, onAddClient, onUpdateClient, onDele
                     <DollarSign size={16} /> {client.defaultRate}/hr
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.25rem' }}>
+                <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                  <button 
+                    type="button"
+                    className="btn btn-secondary btn-icon-only btn-sm" 
+                    onClick={() => onTogglePinClient(client.id)}
+                    title={client.isPinned ? "Unpin Client" : "Pin Client"}
+                    style={{ 
+                      color: client.isPinned ? 'var(--color-primary)' : 'var(--text-muted)',
+                      borderColor: client.isPinned ? 'var(--color-primary)' : ''
+                    }}
+                  >
+                    <Pin size={14} style={{ transform: client.isPinned ? 'none' : 'rotate(45deg)', transition: 'transform 0.2s' }} />
+                  </button>
                   <button className="btn btn-secondary btn-icon-only btn-sm" onClick={() => openEditModal(client)}>
                     <Edit2 size={14} />
                   </button>

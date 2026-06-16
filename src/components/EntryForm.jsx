@@ -10,6 +10,26 @@ export default function EntryForm({ clients, categories, onLogEntry, initialValu
   const [status, setStatus] = useState('Unbilled');
   const [isBillable, setIsBillable] = useState(true);
 
+  const sortedClients = React.useMemo(() => {
+    return [...clients].sort((a, b) => {
+      const pinA = !!a.isPinned;
+      const pinB = !!b.isPinned;
+      if (pinA && !pinB) return -1;
+      if (!pinA && pinB) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [clients]);
+
+  const sortedCategories = React.useMemo(() => {
+    return [...categories].sort((a, b) => {
+      const pinA = !!a.isPinned;
+      const pinB = !!b.isPinned;
+      if (pinA && !pinB) return -1;
+      if (!pinA && pinB) return 1;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+  }, [categories]);
+
   // Pre-fill fields if we are editing an existing entry
   useEffect(() => {
     if (initialValues) {
@@ -23,7 +43,7 @@ export default function EntryForm({ clients, categories, onLogEntry, initialValu
     } else {
       setIsBillable(true);
       if (clients.length > 0) setClientId(clients[0].id);
-      if (categories.length > 0) setCategory(categories[0]);
+      if (categories.length > 0) setCategory(categories[0].name || categories[0]);
     }
   }, [initialValues, clients, categories]);
 
@@ -94,8 +114,10 @@ export default function EntryForm({ clients, categories, onLogEntry, initialValu
             required
           >
             <option value="" disabled>Choose client...</option>
-            {clients.map(c => (
-              <option key={c.id} value={c.id}>{c.name} (${c.defaultRate}/hr)</option>
+            {sortedClients.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.isPinned ? '📌 ' : ''}{c.name} (${c.defaultRate}/hr)
+              </option>
             ))}
           </select>
         </div>
@@ -109,8 +131,10 @@ export default function EntryForm({ clients, categories, onLogEntry, initialValu
             required
           >
             <option value="" disabled>Choose category...</option>
-            {categories.map((cat, idx) => (
-              <option key={idx} value={cat}>{cat}</option>
+            {sortedCategories.map((cat, idx) => (
+              <option key={cat.id || idx} value={cat.name}>
+                {cat.isPinned ? '📌 ' : ''}{cat.name}
+              </option>
             ))}
           </select>
         </div>

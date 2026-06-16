@@ -17,6 +17,16 @@ export default function Timer({ userId, clients, categories, onLogEntry, entries
   const [description, setDescription] = useState('');
   const [isBillable, setIsBillable] = useState(true);
 
+  const [idleThreshold, setIdleThreshold] = useState(() => {
+    return parseFloat(localStorage.getItem(`tempo_idle_threshold_${userId}`)) || 5;
+  });
+  const [idleEnabled, setIdleEnabled] = useState(() => {
+    return localStorage.getItem(`tempo_idle_enabled_${userId}`) !== 'false';
+  });
+  const [showIdleModal, setShowIdleModal] = useState(false);
+  const [idleSeconds, setIdleSeconds] = useState(0);
+  const [idleStartTimestamp, setIdleStartTimestamp] = useState(null);
+
   const budgetUsage = useMemo(() => {
     if (!selectedClientId || !entries || entries.length === 0) return null;
     const client = clients.find(c => c.id === selectedClientId);
@@ -81,6 +91,26 @@ export default function Timer({ userId, clients, categories, onLogEntry, entries
       period
     };
   }, [selectedClientId, entries, clients, seconds, isActive, isPaused, isBillable]);
+
+  const sortedClients = useMemo(() => {
+    return [...clients].sort((a, b) => {
+      const pinA = !!a.isPinned;
+      const pinB = !!b.isPinned;
+      if (pinA && !pinB) return -1;
+      if (!pinA && pinB) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [clients]);
+
+  const sortedCategories = useMemo(() => {
+    return [...categories].sort((a, b) => {
+      const pinA = !!a.isPinned;
+      const pinB = !!b.isPinned;
+      if (pinA && !pinB) return -1;
+      if (!pinA && pinB) return 1;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+  }, [categories]);
   
   const countRef = useRef(null);
   const debounceRef = useRef(null);
@@ -200,7 +230,7 @@ export default function Timer({ userId, clients, categories, onLogEntry, entries
       setDescription('');
       setIsBillable(true);
       if (clients.length > 0) setSelectedClientId(clients[0].id);
-      if (categories.length > 0) setSelectedCategory(categories[0]);
+      if (categories.length > 0) setSelectedCategory(categories[0].name || categories[0]);
     }
   };
 
@@ -213,7 +243,7 @@ export default function Timer({ userId, clients, categories, onLogEntry, entries
 
   useEffect(() => {
     if (categories.length > 0 && !selectedCategory && !isActive) {
-      setSelectedCategory(categories[0]);
+      setSelectedCategory(categories[0].name || categories[0]);
     }
   }, [categories, isActive]);
 
@@ -235,6 +265,57 @@ export default function Timer({ userId, clients, categories, onLogEntry, entries
     }
     return () => clearInterval(countRef.current);
   }, [isActive, isPaused, userId]);
+
+  // Listen for user activity events
+  useEffect(() => {
+    if (!isActive || isPaused || !idleEnabled) return;
+
+    const updateActivity = () => {
+      localStorage.setItem('tempo_last_active_time', Date.now().toString());
+    };
+
+    updateActivity();
+
+    const events = ['mousemove', 'keydown', 'mousedown', 'scroll', 'touchstart'];
+    events.forEach(evt => window.addEventListener(evt, updateActivity));
+
+    return () => {
+      events.forEach(evt => window.removeEventListener(evt, updateActivity));
+    };
+  }, [isActive, isPaused, idleEnabled]);
+
+  // Polling loop for idle state trigger
+  useEffect(() => {
+    if (!isActive || isPaused || !idleEnabled || showIdleModal || !userId) return;
+
+    const interval = setInterval(() => {
+      const lastActive = parseInt(localStorage.getItem('tempo_last_active_time')) || Date.now();
+      const elapsedIdleMs = Date.now() - lastActive;
+      const thresholdMs = idleThreshold * 60 * 1000;
+      
+      const isTestMode = window.location.search.includes('test_idle=true') || idleThreshold === 0.16;
+      const targetThresholdMs = isTestMode ? 10000 : thresholdMs;
+
+      if (elapsedIdleMs >= targetThresholdMs) {
+        setIdleStartTimestamp(lastActive);
+        
+        const state = getTimerState(userId);
+        if (state) {
+          state.isRunning = true;
+          state.isPaused = true;
+          const elapsedBeforeIdle = Math.floor((lastActive - state.startTime) / 1000);
+          state.accumulatedSeconds += elapsedBeforeIdle;
+          state.startTime = null;
+          saveState(state);
+        }
+        setIsPaused(true);
+        setIdleSeconds(Math.floor(elapsedIdleMs / 1000));
+        setShowIdleModal(true);
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [isActive, isPaused, idleEnabled, idleThreshold, showIdleModal, userId]);
 
   const handleStart = () => {
     const newState = {
@@ -437,11 +518,13 @@ export default function Timer({ userId, clients, categories, onLogEntry, entries
             }}
             disabled={isActive}
           >
-            {clients.length === 0 ? (
+            {sortedClients.length === 0 ? (
               <option value="">No clients found</option>
             ) : (
-              clients.map(c => (
-                <option key={c.id} value={c.id}>{c.name} (${c.defaultRate}/hr)</option>
+              sortedClients.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.isPinned ? '📌 ' : ''}{c.name} (${c.defaultRate}/hr)
+                </option>
               ))
             )}
           </select>
@@ -464,8 +547,10 @@ export default function Timer({ userId, clients, categories, onLogEntry, entries
             }}
             disabled={isActive}
           >
-            {categories.map((cat, idx) => (
-              <option key={idx} value={cat}>{cat}</option>
+            {sortedCategories.map((cat, idx) => (
+              <option key={cat.id || idx} value={cat.name}>
+                {cat.isPinned ? '📌 ' : ''}{cat.name}
+              </option>
             ))}
           </select>
         </div>
@@ -514,7 +599,134 @@ export default function Timer({ userId, clients, categories, onLogEntry, entries
             This work is billable
           </label>
         </div>
+
+        <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <input 
+              type="checkbox" 
+              id="idle-detection-enable"
+              checked={idleEnabled}
+              onChange={(e) => {
+                setIdleEnabled(e.target.checked);
+                localStorage.setItem(`tempo_idle_enabled_${userId}`, e.target.checked.toString());
+              }}
+              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+            />
+            <label htmlFor="idle-detection-enable" style={{ fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer', userSelect: 'none' }}>
+              Enable Inactivity Idle Detection
+            </label>
+          </div>
+          
+          {idleEnabled && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', animation: 'fadeIn 0.2s ease-out' }}>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Idle Threshold:</label>
+              <select
+                className="select-field"
+                style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', width: 'auto', border: '1px solid var(--border-color)', borderRadius: '4px', background: 'var(--bg-sidebar)' }}
+                value={idleThreshold}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  setIdleThreshold(val);
+                  localStorage.setItem(`tempo_idle_threshold_${userId}`, val.toString());
+                }}
+              >
+                <option value="1">1 minute</option>
+                <option value="5">5 minutes</option>
+                <option value="10">10 minutes</option>
+                <option value="15">15 minutes</option>
+                <option value="30">30 minutes</option>
+                <option value="0.16">10 seconds (Testing)</option>
+              </select>
+            </div>
+          )}
+        </div>
       </div>
+
+      {showIdleModal && (
+        <div className="modal-overlay" style={{ zIndex: 10000 }}>
+          <div className="modal-content" style={{ maxWidth: '420px', textAlign: 'center', padding: '2rem', borderRadius: 'var(--radius-lg)' }}>
+            <div style={{ display: 'inline-flex', padding: '1rem', borderRadius: '50%', backgroundColor: 'rgba(245, 158, 11, 0.1)', color: 'var(--color-unbilled)', marginBottom: '1.25rem' }}>
+              <Clock size={40} className="pulse-animate" />
+            </div>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '0.5rem' }}>Are you still working?</h2>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: '1.4' }}>
+              No activity was detected for {idleThreshold === 0.16 ? '10 seconds' : `${idleThreshold}m`}. We've paused your timer to protect your logs.
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%' }}>
+              <button 
+                type="button" 
+                className="btn btn-primary"
+                onClick={() => {
+                  const state = getTimerState(userId);
+                  const currentAccumulated = state ? state.accumulatedSeconds : seconds;
+                  const newState = {
+                    startTime: Date.now(),
+                    accumulatedSeconds: currentAccumulated + idleSeconds,
+                    isRunning: true,
+                    isPaused: false,
+                    clientId: selectedClientId,
+                    category: selectedCategory,
+                    description,
+                    isBillable
+                  };
+                  saveState(newState);
+                  setIsPaused(false);
+                  setIsActive(true);
+                  setShowIdleModal(false);
+                }}
+              >
+                Keep Idle Time & Resume
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-secondary"
+                onClick={() => {
+                  const state = getTimerState(userId);
+                  const currentAccumulated = state ? state.accumulatedSeconds : seconds;
+                  const newState = {
+                    startTime: Date.now(),
+                    accumulatedSeconds: currentAccumulated,
+                    isRunning: true,
+                    isPaused: false,
+                    clientId: selectedClientId,
+                    category: selectedCategory,
+                    description,
+                    isBillable
+                  };
+                  saveState(newState);
+                  setIsPaused(false);
+                  setIsActive(true);
+                  setShowIdleModal(false);
+                }}
+              >
+                Discard Idle Time & Resume
+              </button>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowIdleModal(false);
+                  }}
+                >
+                  Keep & Pause
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-danger"
+                  onClick={() => {
+                    handleReset();
+                    setShowIdleModal(false);
+                  }}
+                >
+                  Discard & Stop
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

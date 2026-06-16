@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, FolderPlus, Edit2, Check, X } from 'lucide-react';
+import { Plus, Trash2, FolderPlus, Edit2, Check, X, Pin } from 'lucide-react';
 
-export default function CategoryMgr({ categories, onAddCategory, onDeleteCategory, onUpdateCategory }) {
+export default function CategoryMgr({ categories, onAddCategory, onDeleteCategory, onUpdateCategory, onTogglePinCategory }) {
   const [newCategory, setNewCategory] = useState('');
   const [editingIndex, setEditingIndex] = useState(-1);
   const [editingValue, setEditingValue] = useState('');
@@ -11,7 +11,7 @@ export default function CategoryMgr({ categories, onAddCategory, onDeleteCategor
     const cleanCat = newCategory.trim();
     if (!cleanCat) return;
 
-    if (categories.some(c => c.toLowerCase() === cleanCat.toLowerCase())) {
+    if (categories.some(c => c.name.toLowerCase() === cleanCat.toLowerCase())) {
       alert('This category already exists.');
       return;
     }
@@ -20,30 +20,30 @@ export default function CategoryMgr({ categories, onAddCategory, onDeleteCategor
     setNewCategory('');
   };
 
-  const handleDelete = (cat) => {
-    if (window.confirm(`Are you sure you want to delete the category "${cat}"? Existing time entries under this category will not be affected.`)) {
-      onDeleteCategory(cat);
+  const handleDelete = (id, name) => {
+    if (window.confirm(`Are you sure you want to delete the category "${name}"? Existing time entries under this category will not be affected.`)) {
+      onDeleteCategory(id);
     }
   };
 
-  const handleStartEdit = (idx, cat) => {
+  const handleStartEdit = (idx, name) => {
     setEditingIndex(idx);
-    setEditingValue(cat);
+    setEditingValue(name);
   };
 
-  const handleSaveEdit = (idx, oldCat) => {
+  const handleSaveEdit = (idx, id, oldName) => {
     const cleanVal = editingValue.trim();
     if (!cleanVal) {
       alert('Category name cannot be empty.');
       return;
     }
 
-    if (cleanVal.toLowerCase() !== oldCat.toLowerCase() && categories.some(c => c.toLowerCase() === cleanVal.toLowerCase())) {
+    if (cleanVal.toLowerCase() !== oldName.toLowerCase() && categories.some(c => c.name.toLowerCase() === cleanVal.toLowerCase())) {
       alert('This category already exists.');
       return;
     }
 
-    onUpdateCategory(oldCat, cleanVal);
+    onUpdateCategory(id, cleanVal);
     setEditingIndex(-1);
   };
 
@@ -84,7 +84,7 @@ export default function CategoryMgr({ categories, onAddCategory, onDeleteCategor
         ) : (
           categories.map((cat, idx) => (
             <div 
-              key={idx} 
+              key={cat.id || idx} 
               style={{ 
                 display: 'flex', 
                 justifyContent: 'space-between', 
@@ -107,14 +107,16 @@ export default function CategoryMgr({ categories, onAddCategory, onDeleteCategor
                     autoFocus
                   />
                   <button 
+                    type="button"
                     className="btn btn-secondary btn-icon-only btn-sm"
                     style={{ color: 'var(--color-paid)', borderColor: 'rgba(16, 185, 129, 0.15)' }}
-                    onClick={() => handleSaveEdit(idx, cat)}
+                    onClick={() => handleSaveEdit(idx, cat.id, cat.name)}
                     title="Save"
                   >
                     <Check size={14} />
                   </button>
                   <button 
+                    type="button"
                     className="btn btn-secondary btn-icon-only btn-sm"
                     onClick={handleCancelEdit}
                     title="Cancel"
@@ -124,19 +126,33 @@ export default function CategoryMgr({ categories, onAddCategory, onDeleteCategor
                 </div>
               ) : (
                 <>
-                  <span style={{ fontWeight: 500, fontSize: '0.95rem' }}>{cat}</span>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <span style={{ fontWeight: 500, fontSize: '0.95rem' }}>{cat.name}</span>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <button 
+                      type="button"
                       className="btn btn-secondary btn-icon-only btn-sm" 
-                      onClick={() => handleStartEdit(idx, cat)}
+                      onClick={() => onTogglePinCategory(cat.id)}
+                      title={cat.isPinned ? "Unpin Category" : "Pin Category"}
+                      style={{ 
+                        color: cat.isPinned ? 'var(--color-primary)' : 'var(--text-muted)',
+                        borderColor: cat.isPinned ? 'var(--color-primary)' : ''
+                      }}
+                    >
+                      <Pin size={14} style={{ transform: cat.isPinned ? 'none' : 'rotate(45deg)', transition: 'transform 0.2s' }} />
+                    </button>
+                    <button 
+                      type="button"
+                      className="btn btn-secondary btn-icon-only btn-sm" 
+                      onClick={() => handleStartEdit(idx, cat.name)}
                       title="Edit"
                     >
                       <Edit2 size={14} />
                     </button>
                     <button 
+                      type="button"
                       className="btn btn-secondary btn-icon-only btn-sm" 
                       style={{ color: 'var(--color-danger)', borderColor: 'rgba(239, 68, 68, 0.15)' }}
-                      onClick={() => handleDelete(cat)}
+                      onClick={() => handleDelete(cat.id, cat.name)}
                       title="Delete"
                     >
                       <Trash2 size={14} />

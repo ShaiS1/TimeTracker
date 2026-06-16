@@ -43,7 +43,9 @@ import {
   getTheme, 
   saveTheme,
   getTimerState,
-  saveTimerState
+  saveTimerState,
+  getSavedFilters as getLocalSavedFilters,
+  saveSavedFilters as saveLocalSavedFilters
 } from './utils/storage';
 
 import { generateInvoicePDF } from './utils/pdfGenerator';
@@ -96,6 +98,7 @@ export default function App() {
   const [entries, setEntries] = useState([]);
   const [userProfile, setUserProfile] = useState({});
   const [invoices, setInvoices] = useState([]);
+  const [savedFilters, setSavedFilters] = useState([]);
   
   const [activeTab, setActiveTab] = useState('dashboard');
   const [theme, setTheme] = useState('dark');
@@ -189,11 +192,11 @@ export default function App() {
           const { data: categoriesData } = await dataClient.models.Category.list();
           if (categoriesData.length === 0) {
             const seedCats = ['Software Development', 'UI/UX Design', 'Technical Consulting', 'Project Management', 'QA & Testing', 'Code Review'];
-            await Promise.all(seedCats.map(name => dataClient.models.Category.create({ name })));
+            await Promise.all(seedCats.map(name => dataClient.models.Category.create({ name, isPinned: false })));
             const { data: refetchedCats } = await dataClient.models.Category.list();
-            setCategories(refetchedCats.map(c => c.name));
+            setCategories(refetchedCats);
           } else {
-            setCategories(categoriesData.map(c => c.name));
+            setCategories(categoriesData);
           }
 
           // 3. Fetch Entries
@@ -249,6 +252,10 @@ export default function App() {
           const { data: invoicesData } = await dataClient.models.Invoice.list();
           const sortedInvoices = [...invoicesData].sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate));
           setInvoices(sortedInvoices);
+
+          // 6. Fetch Saved Filters
+          const { data: savedFiltersData } = await dataClient.models.SavedFilter.list();
+          setSavedFilters(savedFiltersData);
         } catch (err) {
           console.error("Amplify data fetch error:", err);
         } finally {
@@ -260,6 +267,7 @@ export default function App() {
         setCategories(getLocalCategories(currentUser.id));
         setEntries(getLocalEntries(currentUser.id));
         setInvoices(getLocalInvoices(currentUser.id));
+        setSavedFilters(getLocalSavedFilters(currentUser.id));
         
         const profile = getLocalUserProfile(currentUser.id);
         setUserProfile(profile);
@@ -283,6 +291,9 @@ export default function App() {
       }
       if (e.key === `tempo_categories_${currentUser.id}`) {
         setCategories(getLocalCategories(currentUser.id));
+      }
+      if (e.key === `tempo_saved_filters_${currentUser.id}`) {
+        setSavedFilters(getLocalSavedFilters(currentUser.id));
       }
       if (e.key === 'tempo_current_user') {
         const user = getLocalCurrentUser();
@@ -473,54 +484,129 @@ export default function App() {
   // --- Categories CRUD Handlers ---
   const handleAddCategory = async (newCat) => {
     if (isAmplifyConfigured) {
-      const { data } = await dataClient.models.Category.create({ name: newCat });
-      setCategories([...categories, data.name]);
+      const { data } = await dataClient.models.Category.create({ name: newCat, isPinned: false });
+      setCategories([...categories, data]);
     } else {
-      const updated = [...categories, newCat];
+      const payload = { id: `cat-${Date.now()}`, name: newCat, isPinned: false };
+      const updated = [...categories, payload];
       setCategories(updated);
       saveLocalCategories(currentUser.id, updated);
     }
   };
 
-  const handleDeleteCategory = async (catToDelete) => {
+  const handleDeleteCategory = async (idToDelete) => {
     if (isAmplifyConfigured) {
-      const { data: catsList } = await dataClient.models.Category.list();
-      const item = catsList.find(c => c.name === catToDelete);
-      if (item) {
-        await dataClient.models.Category.delete({ id: item.id });
-      }
-      setCategories(categories.filter(c => c !== catToDelete));
+      await dataClient.models.Category.delete({ id: idToDelete });
+      setCategories(categories.filter(c => c.id !== idToDelete));
     } else {
-      const updated = categories.filter(c => c !== catToDelete);
+      const updated = categories.filter(c => c.id !== idToDelete);
       setCategories(updated);
       saveLocalCategories(currentUser.id, updated);
     }
   };
 
-  const handleUpdateCategory = async (oldCatName, newCatName) => {
+  const handleUpdateCategory = async (id, newCatName) => {
     if (isAmplifyConfigured) {
-      const { data: catsList } = await dataClient.models.Category.list();
-      const item = catsList.find(c => c.name === oldCatName);
-      if (item) {
-        await dataClient.models.Category.update({ id: item.id, name: newCatName });
-      }
-      setCategories(categories.map(c => c === oldCatName ? newCatName : c));
+      const oldCat = categories.find(c => c.id === id);
+      const { data } = await dataClient.models.Category.update({ id, name: newCatName });
+      setCategories(categories.map(c => c.id === id ? data : c));
 
       // Cascade update to entries in DynamoDB
-      const entriesToUpdate = entries.filter(e => e.category === oldCatName);
-      await Promise.all(entriesToUpdate.map(e => dataClient.models.TimeEntry.update({ id: e.id, category: newCatName })));
-      
-      const { data: refetchedEntries } = await dataClient.models.TimeEntry.list();
-      const sorted = [...refetchedEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
-      setEntries(sorted);
+      if (oldCat) {
+        const entriesToUpdate = entries.filter(e => e.category === oldCat.name);
+        await Promise.all(entriesToUpdate.map(e => dataClient.models.TimeEntry.update({ id: e.id, category: newCatName })));
+        
+        const { data: refetchedEntries } = await dataClient.models.TimeEntry.list();
+        const sorted = [...refetchedEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+        setEntries(sorted);
+      }
     } else {
-      const updatedCats = categories.map(c => c === oldCatName ? newCatName : c);
+      const oldCat = categories.find(c => c.id === id);
+      const updatedCats = categories.map(c => c.id === id ? { ...c, name: newCatName } : c);
       setCategories(updatedCats);
       saveLocalCategories(currentUser.id, updatedCats);
 
-      const updatedEntries = entries.map(e => e.category === oldCatName ? { ...e, category: newCatName } : e);
-      setEntries(updatedEntries);
-      saveLocalEntries(currentUser.id, updatedEntries);
+      if (oldCat) {
+        const updatedEntries = entries.map(e => e.category === oldCat.name ? { ...e, category: newCatName } : e);
+        setEntries(updatedEntries);
+        saveLocalEntries(currentUser.id, updatedEntries);
+      }
+    }
+  };
+
+  // --- Pin / Unpin Handlers ---
+  const handleTogglePinClient = async (id) => {
+    const client = clients.find(c => c.id === id);
+    if (!client) return;
+    const nextPinned = !client.isPinned;
+    if (isAmplifyConfigured) {
+      const { data } = await dataClient.models.Client.update({
+        id,
+        isPinned: nextPinned
+      });
+      setClients(clients.map(c => c.id === id ? data : c));
+    } else {
+      const updated = clients.map(c => c.id === id ? { ...c, isPinned: nextPinned } : c);
+      setClients(updated);
+      saveLocalClients(currentUser.id, updated);
+    }
+  };
+
+  const handleTogglePinCategory = async (id) => {
+    const cat = categories.find(c => c.id === id);
+    if (!cat) return;
+    const nextPinned = !cat.isPinned;
+    if (isAmplifyConfigured) {
+      const { data } = await dataClient.models.Category.update({
+        id,
+        isPinned: nextPinned
+      });
+      setCategories(categories.map(c => c.id === id ? data : c));
+    } else {
+      const updated = categories.map(c => c.id === id ? { ...c, isPinned: nextPinned } : c);
+      setCategories(updated);
+      saveLocalCategories(currentUser.id, updated);
+    }
+  };
+
+  // --- Saved Filters Handlers ---
+  const handleCreateSavedFilter = async (name, payload) => {
+    if (isAmplifyConfigured) {
+      const { data } = await dataClient.models.SavedFilter.create({
+        name,
+        filterClient: payload.filterClient || '',
+        filterCategory: payload.filterCategory || '',
+        filterStatus: payload.filterStatus || '',
+        filterStartDate: payload.filterStartDate || '',
+        filterEndDate: payload.filterEndDate || '',
+        searchQuery: payload.searchQuery || '',
+      });
+      setSavedFilters([...savedFilters, data]);
+    } else {
+      const newFilter = {
+        id: `filter-${Date.now()}`,
+        name,
+        filterClient: payload.filterClient || '',
+        filterCategory: payload.filterCategory || '',
+        filterStatus: payload.filterStatus || '',
+        filterStartDate: payload.filterStartDate || '',
+        filterEndDate: payload.filterEndDate || '',
+        searchQuery: payload.searchQuery || '',
+      };
+      const updated = [...savedFilters, newFilter];
+      setSavedFilters(updated);
+      saveLocalSavedFilters(currentUser.id, updated);
+    }
+  };
+
+  const handleDeleteSavedFilter = async (id) => {
+    if (isAmplifyConfigured) {
+      await dataClient.models.SavedFilter.delete({ id });
+      setSavedFilters(savedFilters.filter(f => f.id !== id));
+    } else {
+      const updated = savedFilters.filter(f => f.id !== id);
+      setSavedFilters(updated);
+      saveLocalSavedFilters(currentUser.id, updated);
     }
   };
 
@@ -1277,6 +1363,9 @@ export default function App() {
               onUpdateStatus={handleUpdateStatus}
               onGenerateInvoice={handleInitInvoice}
               onGenerateBatchInvoice={handleInitBatchInvoice}
+              savedFilters={savedFilters}
+              onAddSavedFilter={handleCreateSavedFilter}
+              onDeleteSavedFilter={handleDeleteSavedFilter}
             />
           )}
 
@@ -1297,6 +1386,7 @@ export default function App() {
               onAddClient={handleAddClient} 
               onUpdateClient={handleUpdateClient} 
               onDeleteClient={handleDeleteClient} 
+              onTogglePinClient={handleTogglePinClient}
             />
           )}
 
@@ -1306,6 +1396,7 @@ export default function App() {
               onAddCategory={handleAddCategory} 
               onDeleteCategory={handleDeleteCategory} 
               onUpdateCategory={handleUpdateCategory}
+              onTogglePinCategory={handleTogglePinCategory}
             />
           )}
 

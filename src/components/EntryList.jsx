@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Edit2, Trash2, Check, Download, FileText, ChevronDown, ChevronUp, Search, Calendar, FileSpreadsheet } from 'lucide-react';
+import { Edit2, Trash2, Check, Download, FileText, ChevronDown, ChevronUp, Search, Calendar, FileSpreadsheet, X } from 'lucide-react';
 import { generateTimesheetCSV, generateTimesheetPDF } from '../utils/reportGenerator';
 
-export default function EntryList({ entries, clients, userProfile, onDeleteEntry, onEditEntry, onUpdateStatus, onGenerateInvoice, onGenerateBatchInvoice }) {
+export default function EntryList({ entries, clients, userProfile, onDeleteEntry, onEditEntry, onUpdateStatus, onGenerateInvoice, onGenerateBatchInvoice, savedFilters = [], onAddSavedFilter, onDeleteSavedFilter }) {
   const [filterClient, setFilterClient] = useState('');
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [filterCategory, setFilterCategory] = useState('');
@@ -17,6 +17,8 @@ export default function EntryList({ entries, clients, userProfile, onDeleteEntry
   // Sort State
   const [sortField, setSortField] = useState('date');
   const [sortDirection, setSortDirection] = useState('desc');
+  const [isSavingFilter, setIsSavingFilter] = useState(false);
+  const [saveFilterName, setSaveFilterName] = useState('');
 
   // Client mapping helper
   const clientMap = useMemo(() => {
@@ -216,6 +218,122 @@ export default function EntryList({ entries, clients, userProfile, onDeleteEntry
                 onChange={(e) => setFilterEndDate(e.target.value)} 
                 title="End Date"
               />
+            </div>
+          </div>
+
+          {/* Saved Filters Row */}
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', width: '100%' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Saved Views:</span>
+              {savedFilters.length === 0 ? (
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>No saved views yet</span>
+              ) : (
+                savedFilters.map(sf => (
+                  <div 
+                    key={sf.id} 
+                    style={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '0.35rem', 
+                      backgroundColor: 'rgba(255,255,255,0.03)', 
+                      border: '1px solid var(--border-color)', 
+                      borderRadius: '20px', 
+                      padding: '0.2rem 0.6rem',
+                      fontSize: '0.75rem',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onClick={() => {
+                      setFilterClient(sf.filterClient || '');
+                      setFilterCategory(sf.filterCategory || '');
+                      setFilterStatus(sf.filterStatus || '');
+                      setFilterStartDate(sf.filterStartDate || '');
+                      setFilterEndDate(sf.filterEndDate || '');
+                      setSearchQuery(sf.searchQuery || '');
+                    }}
+                    title="Apply saved filter parameters"
+                  >
+                    <span style={{ fontWeight: 500 }}>{sf.name}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteSavedFilter(sf.id);
+                      }}
+                      style={{ 
+                        background: 'none', 
+                        border: 'none', 
+                        color: 'var(--text-muted)', 
+                        cursor: 'pointer', 
+                        padding: 0,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      title="Delete saved view"
+                    >
+                      <X size={12} style={{ color: 'var(--color-danger)', opacity: 0.7 }} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              {!isSavingFilter ? (
+                <button 
+                  type="button" 
+                  className="btn btn-secondary btn-sm"
+                  style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
+                  onClick={() => setIsSavingFilter(true)}
+                >
+                  Save Current View
+                </button>
+              ) : (
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const cleanName = saveFilterName.trim();
+                    if (!cleanName) return;
+                    onAddSavedFilter(cleanName, {
+                      filterClient,
+                      filterCategory,
+                      filterStatus,
+                      filterStartDate,
+                      filterEndDate,
+                      searchQuery
+                    });
+                    setSaveFilterName('');
+                    setIsSavingFilter(false);
+                  }}
+                  style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}
+                >
+                  <input 
+                    type="text" 
+                    className="input-field" 
+                    style={{ padding: '0.35rem 0.60rem', fontSize: '0.8rem', width: '130px', border: '1px solid var(--border-color)', borderRadius: '4px' }}
+                    placeholder="View name..."
+                    value={saveFilterName}
+                    onChange={(e) => setSaveFilterName(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                  <button type="submit" className="btn btn-primary btn-sm" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}>
+                    Save
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary btn-sm" 
+                    style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
+                    onClick={() => {
+                      setSaveFilterName('');
+                      setIsSavingFilter(false);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </form>
+              )}
             </div>
           </div>
         </div>

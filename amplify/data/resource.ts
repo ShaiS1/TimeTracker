@@ -11,10 +11,22 @@ const schema = a.schema({
     budgetType: a.string(), // 'hours', 'revenue', or 'none'
     budgetLimit: a.float(),
     budgetPeriod: a.string(), // 'weekly', 'monthly', 'total', or 'none'
+    isPinned: a.boolean(),
   }).authorization((allow) => [allow.owner()]),
 
   Category: a.model({
     name: a.string().required(),
+    isPinned: a.boolean(),
+  }).authorization((allow) => [allow.owner()]),
+
+  SavedFilter: a.model({
+    name: a.string().required(),
+    filterClient: a.string(),
+    filterCategory: a.string(),
+    filterStatus: a.string(),
+    filterStartDate: a.string(),
+    filterEndDate: a.string(),
+    searchQuery: a.string(),
   }).authorization((allow) => [allow.owner()]),
 
   TimeEntry: a.model({

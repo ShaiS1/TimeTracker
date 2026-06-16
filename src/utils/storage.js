@@ -254,7 +254,16 @@ export const saveClients = (userId, clients) => {
 export const getCategories = (userId) => {
   if (!userId) return [];
   initializeUserStorage(userId);
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS.CATEGORIES_PREFIX + userId)) || [];
+  const data = JSON.parse(localStorage.getItem(STORAGE_KEYS.CATEGORIES_PREFIX + userId)) || [];
+  return data.map((item, idx) => {
+    if (typeof item === 'string') {
+      return { id: `cat-${idx}-${Date.now()}`, name: item, isPinned: false };
+    }
+    if (!item.id) {
+      item.id = `cat-${idx}-${Date.now()}`;
+    }
+    return item;
+  });
 };
 
 export const saveCategories = (userId, categories) => {
@@ -298,6 +307,17 @@ export const saveInvoices = (userId, invoices) => {
   localStorage.setItem(STORAGE_KEYS.INVOICES_PREFIX + userId, JSON.stringify(invoices));
 };
 
+// Saved Filters CRUD (Namespaced)
+export const getSavedFilters = (userId) => {
+  if (!userId) return [];
+  return JSON.parse(localStorage.getItem('tempo_saved_filters_' + userId)) || [];
+};
+
+export const saveSavedFilters = (userId, filters) => {
+  if (!userId) return;
+  localStorage.setItem('tempo_saved_filters_' + userId, JSON.stringify(filters));
+};
+
 // Theme helper
 export const getTheme = () => {
   return localStorage.getItem(STORAGE_KEYS.THEME) || 'dark';
@@ -316,7 +336,8 @@ export const exportBackup = (userId) => {
     categories: getCategories(activeUserId),
     entries: getEntries(activeUserId),
     userProfile: getUserProfile(activeUserId),
-    invoices: getInvoices(activeUserId)
+    invoices: getInvoices(activeUserId),
+    savedFilters: getSavedFilters(activeUserId)
   };
   return JSON.stringify(data, null, 2);
 };
@@ -338,6 +359,9 @@ export const importBackup = (userId, jsonString) => {
       saveUserProfile(activeUserId, data.userProfile);
       if (data.invoices) {
         saveInvoices(activeUserId, data.invoices);
+      }
+      if (data.savedFilters) {
+        saveSavedFilters(activeUserId, data.savedFilters);
       }
       return true;
     }
