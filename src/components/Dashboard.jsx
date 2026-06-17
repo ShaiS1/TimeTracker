@@ -1,5 +1,5 @@
 import React from 'react';
-import { DollarSign, Clock, FileText, CheckCircle, TrendingUp, AlertTriangle } from 'lucide-react';
+import { DollarSign, Clock, FileText, CheckCircle, TrendingUp } from 'lucide-react';
 
 export default function Dashboard({ entries, clients, userProfile = {}, onNavigate }) {
   // Utility to parse date strings properly without timezone shifts
@@ -25,7 +25,10 @@ export default function Dashboard({ entries, clients, userProfile = {}, onNaviga
   const now = new Date();
   const startOfWeek = getStartOfWeek();
   const startOfMonth = getStartOfMonth();
+  
   const taxRate = userProfile.taxRate || 0;
+  const ficaRate = 14.13; // 15.3% on 92.35% effective rate
+  const combinedRate = ficaRate + taxRate;
 
   // Metric aggregates
   let totalHours = 0;
@@ -94,10 +97,14 @@ export default function Dashboard({ entries, clients, userProfile = {}, onNaviga
   });
 
   // Tax calculations
-  const totalTaxReserve = totalEarnings * (taxRate / 100);
-  const paidTaxReserve = paidEarnings * (taxRate / 100);
-  const outstandingTaxReserve = (unbilledEarnings + billedEarnings) * (taxRate / 100);
-  const quarterTaxReserve = quarterEarnings * (taxRate / 100);
+  const totalTaxReserve = totalEarnings * (combinedRate / 100);
+  const paidTaxReserve = paidEarnings * (combinedRate / 100);
+  const outstandingTaxReserve = (unbilledEarnings + billedEarnings) * (combinedRate / 100);
+  const quarterTaxReserve = quarterEarnings * (combinedRate / 100);
+
+  // Breakdown details
+  const totalFica = totalEarnings * (ficaRate / 100);
+  const totalIncome = totalEarnings * (taxRate / 100);
 
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -199,75 +206,93 @@ export default function Dashboard({ entries, clients, userProfile = {}, onNaviga
         </div>
 
         {/* 1099 Tax Estimator Card */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', minHeight: '180px' }}>
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', minHeight: '220px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)', margin: 0 }}>1099 Tax Estimator</h3>
-            {taxRate > 0 && (
-              <span style={{ 
-                fontSize: '0.75rem', 
-                backgroundColor: 'rgba(129, 140, 248, 0.1)', 
-                color: 'var(--color-primary)', 
-                padding: '0.15rem 0.5rem', 
-                borderRadius: '50px',
-                fontWeight: 600,
-                border: '1px solid rgba(129, 140, 248, 0.2)'
-              }}>
-                {taxRate.toFixed(1)}% Est. Rate
-              </span>
-            )}
+            <span style={{ 
+              fontSize: '0.75rem', 
+              backgroundColor: 'rgba(129, 140, 248, 0.1)', 
+              color: 'var(--color-primary)', 
+              padding: '0.15rem 0.5rem', 
+              borderRadius: '50px',
+              fontWeight: 600,
+              border: '1px solid rgba(129, 140, 248, 0.2)'
+            }}>
+              {combinedRate.toFixed(1)}% Est. Combined
+            </span>
           </div>
 
-          {taxRate === 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', textAlign: 'center', padding: '0.5rem 0', gap: '0.75rem' }}>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, lineHeight: '1.4' }}>
-                Estimated taxes are 0% because no default tax rate is set. Configure your tax rate in settings to estimate quarterly and total reserves.
-              </p>
-              <button 
-                type="button" 
-                className="btn btn-secondary btn-sm"
-                onClick={() => onNavigate && onNavigate('profile')}
-                style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', width: 'auto' }}
-              >
-                Set Tax Rate in Settings
-              </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                This Quarter <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({qName})</span>:
+              </span>
+              <span style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--color-primary)' }}>
+                {formatCurrency(quarterTaxReserve)}
+              </span>
             </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '0.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  This Quarter <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({qName})</span>:
+            
+            <div style={{ borderTop: '1px solid var(--border-color)', margin: '0.15rem 0' }} />
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Taxes Owed (Cash basis):</span>
+                <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-paid)' }}>
+                  {formatCurrency(paidTaxReserve)}
                 </span>
-                <span style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--color-primary)' }}>
-                  {formatCurrency(quarterTaxReserve)}
-                </span>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>On collected cash</span>
               </div>
               
-              <div style={{ borderTop: '1px solid var(--border-color)', margin: '0.15rem 0' }} />
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Taxes Owed (Cash basis):</span>
-                  <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-paid)' }}>
-                    {formatCurrency(paidTaxReserve)}
-                  </span>
-                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>On collected cash</span>
-                </div>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Outstanding Taxes:</span>
-                  <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-unbilled)' }}>
-                    {formatCurrency(outstandingTaxReserve)}
-                  </span>
-                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>On unbilled/billed logs</span>
-                </div>
-              </div>
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0.6rem', backgroundColor: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '4px', fontSize: '0.75rem', marginTop: '0.25rem' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Total Accrued Reserve (All-time):</span>
-                <span style={{ fontWeight: 600 }}>{formatCurrency(totalTaxReserve)}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Outstanding Taxes:</span>
+                <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-unbilled)' }}>
+                  {formatCurrency(outstandingTaxReserve)}
+                </span>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>On unbilled/billed logs</span>
               </div>
             </div>
-          )}
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', padding: '0.5rem 0.6rem', backgroundColor: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '4px', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>FICA Self-Employment (14.13%):</span>
+                <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{formatCurrency(totalFica)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Income Tax ({taxRate.toFixed(1)}%):</span>
+                <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{formatCurrency(totalIncome)}</span>
+              </div>
+              <div style={{ borderTop: '1px dashed var(--border-color)', margin: '0.15rem 0' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 600 }}>
+                <span style={{ color: 'var(--text-primary)' }}>Total Est. Reserve (All-time):</span>
+                <span>{formatCurrency(totalTaxReserve)}</span>
+              </div>
+            </div>
+
+            {taxRate === 0 && (
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                padding: '0.4rem 0.6rem', 
+                backgroundColor: 'rgba(245, 158, 11, 0.08)', 
+                border: '1px solid rgba(245, 158, 11, 0.2)', 
+                borderRadius: '4px',
+                fontSize: '0.7rem',
+                color: 'var(--color-unbilled)',
+                marginTop: '0.25rem',
+                animation: 'fadeIn 0.2s ease-out'
+              }}>
+                <span>Income tax rate not configured.</span>
+                <button 
+                  type="button" 
+                  onClick={() => onNavigate && onNavigate('profile')}
+                  style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                >
+                  Configure Settings
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {clients.filter(c => c.budgetType && c.budgetType !== 'none' && c.budgetLimit).length > 0 && (
