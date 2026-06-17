@@ -1339,7 +1339,7 @@ export default function App() {
         <div className="view-container">
           {activeTab === 'dashboard' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-              <Dashboard entries={entries} clients={clients} />
+              <Dashboard entries={entries} clients={clients} userProfile={userProfile} onNavigate={setActiveTab} />
               <div className="dashboard-grid">
                 <Timer userId={userIdVal} clients={clients} categories={categories} onLogEntry={handleSaveEntry} entries={entries} />
                 <Analytics entries={entries} clients={clients} invoices={invoices} />
