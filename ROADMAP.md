@@ -22,7 +22,7 @@ This document tracks the feature roadmap, active task list, completed milestones
 | **Timer Idle Detection** | Prompt user to discard or resume if timer runs but no keyboard/mouse activity is detected | ✅ Completed | v2.1.0 |
 | **Recurring/Pinned Elements** | Support pinning favorite clients or frequently used categories | ✅ Completed | v2.1.0 |
 | **Saved Filters** | Support saving custom views (e.g., "Current Month Unbilled Work", "Client-Specific Views") | ✅ Completed | v2.1.0 |
-| **Tax Estimator** | Suggest monthly tax reserves for 1099 independent contractors based on current tax settings | 📋 Planned | v2.2.0 |
+| **Tax Estimator** | Suggest monthly tax reserves for 1099 independent contractors based on current tax settings | ✅ Completed | v2.2.0 |
 | **Invoice Email Integration** | Send PDF invoices directly to client emails from the app | 📋 Planned | v2.3.0 |
 
 ---
@@ -37,6 +37,20 @@ This document tracks the feature roadmap, active task list, completed milestones
 ---
 
 ## 📜 Changelog
+
+### [v2.2.0] - 2026-06-17
+#### Added
+* Implemented 1099 Tax Estimator card on the Dashboard.
+* Auto-calculates FICA self-employment taxes (15.3% on 92.35% of gross earnings, translating to an effective flat 14.13% rate).
+* Integrates custom user-configured income tax rate to estimate combined tax reserves.
+* Displays a detailed breakdown of FICA vs. Income tax reserves.
+* Added settings navigation link if no income tax rate is set, while still displaying FICA reserves.
+
+### [v2.1.0] - 2026-06-16
+#### Added
+* Implemented active stopwatch idle inactivity detection (pauses timer automatically after inactivity threshold and prompts the user with resolution options).
+* Added Client/Category pinning in Manager tabs to sort favorite entities to the top of selectors with a 📌 visual prefix.
+* Added Saved Views/Filters dashboard manager inside the logs tab.
 
 ### [v1.5.0] - 2026-06-05
 #### Added
