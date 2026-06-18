@@ -24,6 +24,12 @@ This document tracks the feature roadmap, active task list, completed milestones
 | **Saved Filters** | Support saving custom views (e.g., "Current Month Unbilled Work", "Client-Specific Views") | ✅ Completed | v2.1.0 |
 | **Tax Estimator** | Suggest monthly tax reserves for 1099 independent contractors based on current tax settings | ✅ Completed | v2.2.0 |
 | **Invoice Email Integration** | Send PDF invoices directly to client emails from the app | 📋 Planned | v2.3.0 |
+| **Power-User Hotkeys** | Keyboard shortcuts for timer start/stop, tab switching, and log creation | 📋 Planned | v2.4.0 |
+| **Smart NLP Logging** | Support natural language parsing (e.g. "Acme 2h dev coding") to auto-create logs | 📋 Planned | v2.4.0 |
+| **Time Audit & Gap Finder** | Detect untracked gaps in standard working hours and prompt logging | 📋 Planned | v2.5.0 |
+| **Live Rounding Preview** | View actual vs. rounded time/revenue in real-time on running stopwatch | 📋 Planned | v2.5.0 |
+| **Tax Deadlines Integration** | Display IRS quarterly tax payment reminders with calendar export | 📋 Planned | v2.5.0 |
+
 
 ---
 
@@ -177,6 +183,13 @@ This document tracks the feature roadmap, active task list, completed milestones
   * Map Tempo Client profiles to Gusto `contractor_uuid` values.
   * Send invoices directly to Gusto as payment groups with preview estimates.
   * Receive real-time payment status updates (e.g. Funded/Cleared) via webhooks to auto-reconcile invoices in the registry.
+
+### Priority 8: Power-User Productivity & Smart Logging
+* **Global Keyboard Shortcuts (Hotkeys)**: Control the active stopwatch (`Space`), open manual logger (`N`), focus search (`/`), and switch tabs (`1`-`5`) without using the mouse.
+* **Natural Language Time Logging (NLP)**: Type single-sentence logs like `Acme 2.5h dev worked on oauth verification` to automatically populate time entry forms.
+* **Time Log Auditing & Gap Detection**: Visual warning prompts showing gaps in logged billing hours during standard workdays to prevent missed revenue.
+* **Live Rounding Preview**: Real-time display of both actual elapsed time and rounded billable duration on the running timer screen.
+* **Estimated Tax Deadlines**: Calendar integrations and dashboard reminders for IRS quarterly estimated tax payment deadlines (April, June, September, January).
 
 ---
 
