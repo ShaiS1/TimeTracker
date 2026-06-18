@@ -792,7 +792,7 @@ export default function App() {
     }
 
     // 1. Generate PDF Invoicing
-    generateInvoicePDF(userProfile, invoiceClient, invoiceEntries, {
+    await generateInvoicePDF(userProfile, invoiceClient, invoiceEntries, {
       invoiceNumber: invoiceNumber.trim(),
       invoiceDate,
       dueDate: invoiceDueDate,

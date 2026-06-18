@@ -48,6 +48,11 @@ export default function Login({ onLoginSuccess }) {
             setLoading(false);
             return;
           }
+          if (confirmationCode.trim() !== '123456') {
+            setError('Invalid reset verification code.');
+            setLoading(false);
+            return;
+          }
           if (newPassword.length < 6) {
             setError('Password must be at least 6 characters long.');
             setLoading(false);

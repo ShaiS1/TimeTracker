@@ -60,6 +60,16 @@ This document tracks the feature roadmap, active task list, completed milestones
 * **Cause**: Amplify model `.list()` calls are paginated by default and did not follow the `nextToken` query cursor.
 * **Resolution**: Implemented a recursive `listAll` utility to exhaustively follow the pagination cursor and retrieve all records.
 
+### 🐛 Mock Code Bypass in Sandbox Password Reset (Fixed in v2.2.2)
+* **Issue**: In local fallback mode, any non-empty verification code was accepted, allowing unauthorized resets.
+* **Cause**: The input check only validated that `confirmationCode` was not empty.
+* **Resolution**: Added an explicit validation check to verify that `confirmationCode.trim()` is equal to `'123456'`.
+
+### 🐛 Race Condition in Single-Invoice PDF Generation (Fixed in v2.2.2)
+* **Issue**: Creating a single invoice marked time entries as billed in the database before the PDF compiler finished downloading the file. If compiler crashed or failed, the database was updated regardless.
+* **Cause**: `generateInvoicePDF` was called without the `await` keyword.
+* **Resolution**: Added the `await` keyword to the PDF compiler call in `handleGenerateInvoicePDF`.
+
 ---
 
 ## 📜 Changelog
