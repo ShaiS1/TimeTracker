@@ -131,14 +131,31 @@ export default function EntryList({ entries, clients, userProfile, onDeleteEntry
       return;
     }
 
-    const clientIds = new Set(targetEntries.map(e => e.clientId));
+    // Filter to only Unbilled entries
+    const unbilledEntries = targetEntries.filter(e => e.status === 'Unbilled');
+    const skippedCount = targetEntries.length - unbilledEntries.length;
+
+    if (unbilledEntries.length === 0) {
+      alert("No unbilled time entries selected or matching current filters to invoice.");
+      return;
+    }
+
+    if (skippedCount > 0) {
+      const confirmProceed = window.confirm(
+        `Warning: ${skippedCount} of the selected/filtered entries are already Billed or Paid and will be skipped. Do you want to proceed with invoicing the remaining ${unbilledEntries.length} Unbilled entries?`
+      );
+      if (!confirmProceed) return;
+    }
+
+    const clientIds = new Set(unbilledEntries.map(e => e.clientId));
     if (clientIds.size > 1) {
-      onGenerateBatchInvoice(targetEntries);
+      onGenerateBatchInvoice(unbilledEntries);
     } else {
       const clientId = Array.from(clientIds)[0];
-      onGenerateInvoice(clientId, targetEntries);
+      onGenerateInvoice(clientId, unbilledEntries);
     }
   };
+
 
   const getSortIcon = (field) => {
     if (sortField !== field) return null;

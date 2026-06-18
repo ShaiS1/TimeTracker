@@ -40,6 +40,26 @@ This document tracks the feature roadmap, active task list, completed milestones
 * **Cause**: In ES modules / Vite bundler, importing `jspdf-autotable` does not automatically attach the method to the prototype of `jsPDF` when imported anonymously.
 * **Resolution**: Imported `autoTable` as the default export (`import autoTable from 'jspdf-autotable'`) and called it directly: `autoTable(doc, options)`.
 
+### 🐛 Security Lockout in Sandbox Password Reset (Fixed in v2.2.1)
+* **Issue**: Requesting a password reset in local mode immediately changed the account's password to a mock `'dummy'` value before verifying the reset code or entering a new password, causing accidental lockouts.
+* **Cause**: The `REQUEST_CODE` step called `resetUserPassword(email, 'dummy')` instead of verifying account existence first.
+* **Resolution**: Introduced a separate `verifyUserEmail` helper to validate account existence during `REQUEST_CODE`, delaying the actual password update until the correct mock code and new password are submitted.
+
+### 🐛 Invoice Overwrites of Stored Billing Data (Fixed in v2.2.1)
+* **Issue**: Regenerating invoices with selected entries did not filter by status, allowing already `Billed` or `Paid` entries to be updated and their old invoice references overwritten.
+* **Cause**: Lack of state validation check in `handleInvoiceRequest` inside `EntryList.jsx`.
+* **Resolution**: Added client-side filtering to only send `Unbilled` entries to invoice generation, with a warning prompt to inform the user if already billed/paid entries are skipped.
+
+### 🐛 Dropped Client Budgets & Profile Rounding in Cloud Mode (Fixed in v2.2.1)
+* **Issue**: Creating a client in cloud mode silently omitted budget and rounding settings, and updating a user profile in settings omitted default rounding rules.
+* **Cause**: Properties were missing from the AWS Amplify creation and update payloads in `src/App.jsx`.
+* **Resolution**: Updated `Client.create` and `UserProfile` update payloads to explicitly include all budget and rounding settings.
+
+### 🐛 Truncated Cloud Dashboard Queries (Fixed in v2.2.1)
+* **Issue**: Long-term users with more than 100 time logs or invoices saw incomplete dashboard statistics and logs list.
+* **Cause**: Amplify model `.list()` calls are paginated by default and did not follow the `nextToken` query cursor.
+* **Resolution**: Implemented a recursive `listAll` utility to exhaustively follow the pagination cursor and retrieve all records.
+
 ---
 
 ## 📜 Changelog

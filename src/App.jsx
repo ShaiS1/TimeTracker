@@ -58,6 +58,20 @@ import outputs from '../amplify_outputs.json';
 const isAmplifyConfigured = outputs && Object.keys(outputs).length > 0;
 const dataClient = isAmplifyConfigured ? generateClient() : null;
 
+const listAll = async (model) => {
+  let allItems = [];
+  let nextToken = null;
+  do {
+    const res = await model.list({ nextToken });
+    if (res.data) {
+      allItems = allItems.concat(res.data);
+    }
+    nextToken = res.nextToken;
+  } while (nextToken);
+  return { data: allItems };
+};
+
+
 // Rounding utility helper
 const getRoundedDuration = (duration, clientId, clientsList, profile) => {
   const client = clientsList.find(c => c.id === clientId);
@@ -185,28 +199,28 @@ export default function App() {
         setLoading(true);
         try {
           // 1. Fetch Clients
-          const { data: clientsData } = await dataClient.models.Client.list();
+          const { data: clientsData } = await listAll(dataClient.models.Client);
           setClients(clientsData);
 
           // 2. Fetch Categories (Seed defaults if empty)
-          const { data: categoriesData } = await dataClient.models.Category.list();
+          const { data: categoriesData } = await listAll(dataClient.models.Category);
           if (categoriesData.length === 0) {
             const seedCats = ['Software Development', 'UI/UX Design', 'Technical Consulting', 'Project Management', 'QA & Testing', 'Code Review'];
             await Promise.all(seedCats.map(name => dataClient.models.Category.create({ name, isPinned: false })));
-            const { data: refetchedCats } = await dataClient.models.Category.list();
+            const { data: refetchedCats } = await listAll(dataClient.models.Category);
             setCategories(refetchedCats);
           } else {
             setCategories(categoriesData);
           }
 
           // 3. Fetch Entries
-          const { data: entriesData } = await dataClient.models.TimeEntry.list();
+          const { data: entriesData } = await listAll(dataClient.models.TimeEntry);
           // Sort by date descending locally for best visual layout
           const sortedEntries = [...entriesData].sort((a, b) => new Date(b.date) - new Date(a.date));
           setEntries(sortedEntries);
 
           // 4. Fetch User Profile (Seed defaults if empty)
-          const { data: profileData } = await dataClient.models.UserProfile.list();
+          const { data: profileData } = await listAll(dataClient.models.UserProfile);
           if (profileData.length === 0) {
             const defaultName = currentUser.name || (currentUser.email ? currentUser.email.split('@')[0] : 'Developer');
             const { data: newProfile } = await dataClient.models.UserProfile.create({
@@ -215,8 +229,10 @@ export default function App() {
               company: '',
               address: '',
               paymentDetails: '',
-              taxRate: 0
+              taxRate: 0,
+              defaultRounding: 'none'
             });
+
             setUserProfile(newProfile);
             setInvoiceTaxRate(0);
           } else {
@@ -249,12 +265,12 @@ export default function App() {
           }
 
           // 5. Fetch Invoices
-          const { data: invoicesData } = await dataClient.models.Invoice.list();
+          const { data: invoicesData } = await listAll(dataClient.models.Invoice);
           const sortedInvoices = [...invoicesData].sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate));
           setInvoices(sortedInvoices);
 
           // 6. Fetch Saved Filters
-          const { data: savedFiltersData } = await dataClient.models.SavedFilter.list();
+          const { data: savedFiltersData } = await listAll(dataClient.models.SavedFilter);
           setSavedFilters(savedFiltersData);
         } catch (err) {
           console.error("Amplify data fetch error:", err);
@@ -373,7 +389,7 @@ export default function App() {
     try {
       if (isAmplifyConfigured) {
         try {
-          const { data: timers } = await dataClient.models.ActiveTimer.list();
+          const { data: timers } = await listAll(dataClient.models.ActiveTimer);
           await Promise.all(timers.map(t => dataClient.models.ActiveTimer.delete({ id: t.id })));
         } catch (err) {
           console.warn("Failed to clear cloud timer on logout:", err);
@@ -400,11 +416,11 @@ export default function App() {
           const deleteClients = clients.map(c => dataClient.models.Client.delete({ id: c.id }));
           const deleteEntries = entries.map(e => dataClient.models.TimeEntry.delete({ id: e.id }));
           
-          const { data: catsList } = await dataClient.models.Category.list();
+          const { data: catsList } = await listAll(dataClient.models.Category);
           const deleteCats = catsList.map(c => dataClient.models.Category.delete({ id: c.id }));
           const deleteProfile = dataClient.models.UserProfile.delete({ id: userProfile.id });
 
-          const { data: timersList } = await dataClient.models.ActiveTimer.list();
+          const { data: timersList } = await listAll(dataClient.models.ActiveTimer);
           const deleteTimers = timersList.map(t => dataClient.models.ActiveTimer.delete({ id: t.id }));
 
           await Promise.all([...deleteClients, ...deleteEntries, ...deleteCats, ...deleteTimers, deleteProfile]);
@@ -445,9 +461,14 @@ export default function App() {
         email: newClient.email,
         defaultRate: newClient.defaultRate,
         address: newClient.address,
-        notes: newClient.notes
+        notes: newClient.notes,
+        roundingRule: newClient.roundingRule || 'default',
+        budgetType: newClient.budgetType || 'none',
+        budgetLimit: newClient.budgetLimit,
+        budgetPeriod: newClient.budgetPeriod || 'none'
       });
       setClients([...clients, data]);
+
     } else {
       const payload = { ...newClient, id: `client-${Date.now()}` };
       const updated = [...clients, payload];
@@ -516,7 +537,7 @@ export default function App() {
         const entriesToUpdate = entries.filter(e => e.category === oldCat.name);
         await Promise.all(entriesToUpdate.map(e => dataClient.models.TimeEntry.update({ id: e.id, category: newCatName })));
         
-        const { data: refetchedEntries } = await dataClient.models.TimeEntry.list();
+        const { data: refetchedEntries } = await listAll(dataClient.models.TimeEntry);
         const sorted = [...refetchedEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
         setEntries(sorted);
       }
@@ -694,7 +715,7 @@ export default function App() {
         }
         return dataClient.models.TimeEntry.update(patch);
       }));
-      const { data } = await dataClient.models.TimeEntry.list();
+      const { data } = await listAll(dataClient.models.TimeEntry);
       const sorted = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
       setEntries(sorted);
     } else {
@@ -723,7 +744,8 @@ export default function App() {
         company: updatedProfile.company,
         address: updatedProfile.address,
         paymentDetails: updatedProfile.paymentDetails,
-        taxRate: updatedProfile.taxRate
+        taxRate: updatedProfile.taxRate,
+        defaultRounding: updatedProfile.defaultRounding || 'none'
       });
       setUserProfile(data);
       setInvoiceTaxRate(data.taxRate || 0);
@@ -801,11 +823,11 @@ export default function App() {
         notes: ''
       });
 
-      const { data } = await dataClient.models.TimeEntry.list();
+      const { data } = await listAll(dataClient.models.TimeEntry);
       const sorted = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
       setEntries(sorted);
 
-      const { data: refetchedInvs } = await dataClient.models.Invoice.list();
+      const { data: refetchedInvs } = await listAll(dataClient.models.Invoice);
       const sortedInvs = [...refetchedInvs].sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate));
       setInvoices(sortedInvs);
     } else {
@@ -967,11 +989,11 @@ export default function App() {
       }
 
       if (isAmplifyConfigured) {
-        const { data: refetchedEntries } = await dataClient.models.TimeEntry.list();
+        const { data: refetchedEntries } = await listAll(dataClient.models.TimeEntry);
         const sortedEntries = [...refetchedEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
         setEntries(sortedEntries);
 
-        const { data: refetchedInvs } = await dataClient.models.Invoice.list();
+        const { data: refetchedInvs } = await listAll(dataClient.models.Invoice);
         const sortedInvs = [...refetchedInvs].sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate));
         setInvoices(sortedInvs);
       } else {
@@ -1014,11 +1036,11 @@ export default function App() {
           status: 'Paid'
         })));
 
-        const { data: refetchedInvs } = await dataClient.models.Invoice.list();
+        const { data: refetchedInvs } = await listAll(dataClient.models.Invoice);
         const sortedInvs = [...refetchedInvs].sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate));
         setInvoices(sortedInvs);
 
-        const { data: refetchedEntries } = await dataClient.models.TimeEntry.list();
+        const { data: refetchedEntries } = await listAll(dataClient.models.TimeEntry);
         const sortedEntries = [...refetchedEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
         setEntries(sortedEntries);
       } else {
@@ -1054,11 +1076,11 @@ export default function App() {
           invoiceNumber: null
         })));
 
-        const { data: refetchedInvs } = await dataClient.models.Invoice.list();
+        const { data: refetchedInvs } = await listAll(dataClient.models.Invoice);
         const sortedInvs = [...refetchedInvs].sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate));
         setInvoices(sortedInvs);
 
-        const { data: refetchedEntries } = await dataClient.models.TimeEntry.list();
+        const { data: refetchedEntries } = await listAll(dataClient.models.TimeEntry);
         const sortedEntries = [...refetchedEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
         setEntries(sortedEntries);
       } else {

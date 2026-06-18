@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { LogIn, UserPlus, Key, Mail, User, Clock, AlertCircle, ShieldAlert, CheckCircle } from 'lucide-react';
 import { signIn, signUp, confirmSignUp, getCurrentUser, resetPassword, confirmResetPassword } from 'aws-amplify/auth';
-import { registerUser, loginUser, resetUserPassword } from '../utils/storage';
+import { registerUser, loginUser, resetUserPassword, verifyUserEmail } from '../utils/storage';
 import outputs from '../../amplify_outputs.json';
 
 const isAmplifyConfigured = outputs && Object.keys(outputs).length > 0;
@@ -35,7 +35,7 @@ export default function Login({ onLoginSuccess }) {
             setLoading(false);
             return;
           }
-          const res = resetUserPassword(email, 'dummy');
+          const res = verifyUserEmail(email);
           if (res.error) {
             setError(res.error);
           } else {

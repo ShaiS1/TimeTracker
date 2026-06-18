@@ -206,6 +206,17 @@ export const resetUserPassword = (email, newPassword) => {
   return { success: true };
 };
 
+export const verifyUserEmail = (email) => {
+  const users = getUsers();
+  const normalizedEmail = email.toLowerCase().trim();
+  const exists = users.some(u => u.email === normalizedEmail);
+  if (!exists) {
+    return { success: false, error: 'No account found with this email address.' };
+  }
+  return { success: true };
+};
+
+
 export const getCurrentUser = () => {
   return JSON.parse(localStorage.getItem(STORAGE_KEYS.CURRENT_USER)) || null;
 };
