@@ -92,9 +92,9 @@ This document tracks the feature roadmap, active task list, completed milestones
 * **Resolution**: Updated `handleSaveEntry` to reset `editingEntry` to `null` for all new entries, closing the modal. In addition, updated `EntryForm.jsx` header to show "Manual Time Logger" when `initialValues` doesn't have an `id`.
 
 ### 🐛 Pacific Timezone Date Shifting (Fixed in v2.3.0)
-* **Issue**: Timers logged or invoices generated past 4/5 PM Pacific time recorded the entry on the following calendar day.
+* **Issue**: Timers logged, invoices generated, or timesheet reports exported past 4/5 PM Pacific time recorded the event on the following calendar day.
 * **Cause**: Slicing the UTC string from `.toISOString().split('T')[0]` shifts the date to tomorrow when local time rolls past UTC midnight.
-* **Resolution**: Replaced all ISO date slicing with a local `getLocalDateString` helper that extracts the local browser YYYY-MM-DD.
+* **Resolution**: Replaced all ISO date slicing with a local `getLocalDateString` helper that extracts the local browser YYYY-MM-DD. Applied this fix across `App.jsx`, `EntryForm.jsx`, `Timer.jsx`, `Dashboard.jsx`, `Invoices.jsx`, `ProfileMgr.jsx`, and `reportGenerator.js`.
 
 ### 🐛 NLP Regex Special Character Crashes & Boundary Exclusions (Fixed in v2.3.0)
 * **Issue**: The Smart NLP parser crashed the application or failed to match when client or category names contained special regex characters (e.g. `C++`, `(West)`, `/`) or punctuation boundaries.
