@@ -86,6 +86,21 @@ This document tracks the feature roadmap, active task list, completed milestones
 * **Cause**: The code added the entry's amount and duration to the grand totals once at the start of the loop, and again inside the legacy client fallback block.
 * **Resolution**: Removed the redundant increment code inside the fallback `else` block.
 
+### 🐛 Quick Log Modal Lock (Fixed in v2.3.0)
+* **Issue**: Quick logging a time gap saved successfully but left the modal container open, blocking the dashboard.
+* **Cause**: The Quick Log button populated `editingEntry` to open the modal but did not supply an `id` field. The save handler only reset `isManualLogModalOpen` on new entries, leaving the `editingEntry` modal block active.
+* **Resolution**: Updated `handleSaveEntry` to reset `editingEntry` to `null` for all new entries, closing the modal. In addition, updated `EntryForm.jsx` header to show "Manual Time Logger" when `initialValues` doesn't have an `id`.
+
+### 🐛 Pacific Timezone Date Shifting (Fixed in v2.3.0)
+* **Issue**: Timers logged or invoices generated past 4/5 PM Pacific time recorded the entry on the following calendar day.
+* **Cause**: Slicing the UTC string from `.toISOString().split('T')[0]` shifts the date to tomorrow when local time rolls past UTC midnight.
+* **Resolution**: Replaced all ISO date slicing with a local `getLocalDateString` helper that extracts the local browser YYYY-MM-DD.
+
+### 🐛 NLP Regex Special Character Crashes (Fixed in v2.3.0)
+* **Issue**: The Smart NLP parser crashed the application or failed to match when client or category names contained special regex characters (e.g. `C++`, `(West)`, `/`).
+* **Cause**: User-defined strings were interpolated directly into `new RegExp` templates without escaping regex syntax characters.
+* **Resolution**: Integrated an `escapeRegExp` helper function inside `EntryForm.jsx` to wrap all dynamic RegExp template strings.
+
 ---
 
 ## 📜 Changelog
@@ -104,6 +119,9 @@ This document tracks the feature roadmap, active task list, completed milestones
 * Fixed Temporal Dead Zone crash on dashboard mount caused by uninitialized `currentYear` variable.
 * Fixed Accounts Receivable calculation mismatch in Analytics screen.
 * Fixed double-counting bug for deleted/unknown client time logs.
+* Fixed Quick Log manual entries leaving the modal container open.
+* Fixed UTC date shifting at night in Pacific time by replacing ISO slicing with local date helpers.
+* Fixed NLP parsing crashes on client/category names containing special regex characters.
 
 ### [v2.2.0] - 2026-06-17
 #### Added
