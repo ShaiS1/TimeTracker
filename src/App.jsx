@@ -754,20 +754,97 @@ export default function App() {
     }
   };
 
+  // Sync helper to update Invoice status when Time Entries change status or get deleted
+  const syncInvoiceStatusAfterEntryChange = async (affectedInvoices, latestEntries) => {
+    if (!affectedInvoices || affectedInvoices.size === 0) return;
+    
+    const updatedInvoicesList = [...invoices];
+    let invoicesChanged = false;
+
+    for (const invNum of affectedInvoices) {
+      if (!invNum) continue;
+      const invoice = invoices.find(i => i.invoiceNumber === invNum);
+      if (!invoice) continue;
+
+      const invoiceEntries = latestEntries.filter(e => e.invoiceNumber === invNum);
+      
+      let targetStatus = invoice.status;
+      if (invoiceEntries.length > 0) {
+        const allPaid = invoiceEntries.every(e => e.status === 'Paid');
+        const anyBilled = invoiceEntries.some(e => e.status === 'Billed');
+
+        if (allPaid && invoice.status !== 'Paid') {
+          targetStatus = 'Paid';
+        } else if (anyBilled && invoice.status === 'Paid') {
+          targetStatus = 'Unpaid';
+        }
+      } else {
+        // No entries left associated with this invoice
+        if (invoice.status === 'Paid') {
+          targetStatus = 'Unpaid';
+        }
+      }
+
+      if (targetStatus !== invoice.status) {
+        invoicesChanged = true;
+        if (isAmplifyConfigured) {
+          await dataClient.models.Invoice.update({
+            id: invoice.id,
+            status: targetStatus
+          });
+        } else {
+          const index = updatedInvoicesList.findIndex(i => i.id === invoice.id);
+          if (index !== -1) {
+            updatedInvoicesList[index] = { ...updatedInvoicesList[index], status: targetStatus };
+          }
+        }
+      }
+    }
+
+    if (invoicesChanged) {
+      if (isAmplifyConfigured) {
+        const { data } = await listAll(dataClient.models.Invoice);
+        const sorted = [...data].sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate));
+        setInvoices(sorted);
+      } else {
+        setInvoices(updatedInvoicesList);
+        saveLocalInvoices(currentUser.id, updatedInvoicesList);
+      }
+    }
+  };
+
   const handleDeleteEntry = async (id) => {
     if (window.confirm("Are you sure you want to delete this time entry?")) {
+      const entryToDelete = entries.find(e => e.id === id);
+      const affectedInvoiceNumber = entryToDelete?.invoiceNumber;
+
       if (isAmplifyConfigured) {
         await dataClient.models.TimeEntry.delete({ id });
-        setEntries(entries.filter(e => e.id !== id));
+        const updated = entries.filter(e => e.id !== id);
+        setEntries(updated);
+        if (affectedInvoiceNumber) {
+          await syncInvoiceStatusAfterEntryChange(new Set([affectedInvoiceNumber]), updated);
+        }
       } else {
         const updated = entries.filter(e => e.id !== id);
         setEntries(updated);
         saveLocalEntries(currentUser.id, updated);
+        if (affectedInvoiceNumber) {
+          await syncInvoiceStatusAfterEntryChange(new Set([affectedInvoiceNumber]), updated);
+        }
       }
     }
   };
 
   const handleUpdateStatus = async (ids, nextStatus) => {
+    const affectedInvoiceNumbers = new Set();
+    ids.forEach(id => {
+      const entry = entries.find(e => e.id === id);
+      if (entry && entry.invoiceNumber) {
+        affectedInvoiceNumbers.add(entry.invoiceNumber);
+      }
+    });
+
     if (isAmplifyConfigured) {
       await Promise.all(ids.map(id => {
         const entry = entries.find(e => e.id === id);
@@ -780,6 +857,8 @@ export default function App() {
       const { data } = await listAll(dataClient.models.TimeEntry);
       const sorted = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
       setEntries(sorted);
+
+      await syncInvoiceStatusAfterEntryChange(affectedInvoiceNumbers, sorted);
     } else {
       const updated = entries.map(e => {
         if (ids.includes(e.id)) {
@@ -793,6 +872,8 @@ export default function App() {
       });
       setEntries(updated);
       saveLocalEntries(currentUser.id, updated);
+
+      await syncInvoiceStatusAfterEntryChange(affectedInvoiceNumbers, updated);
     }
   };
 
@@ -1116,6 +1197,48 @@ export default function App() {
       }
     } catch (err) {
       console.error("Failed to mark invoice as paid:", err);
+      alert("An error occurred while updating the invoice payment status.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMarkInvoiceUnpaid = async (invoiceId) => {
+    const invoiceToUnpay = invoices.find(inv => inv.id === invoiceId);
+    if (!invoiceToUnpay) return;
+
+    setLoading(true);
+    try {
+      if (isAmplifyConfigured) {
+        await dataClient.models.Invoice.update({
+          id: invoiceId,
+          status: 'Unpaid'
+        });
+
+        const entriesToUpdate = entries.filter(e => e.invoiceNumber === invoiceToUnpay.invoiceNumber);
+        await Promise.all(entriesToUpdate.map(e => dataClient.models.TimeEntry.update({
+          id: e.id,
+          status: 'Billed'
+        })));
+
+        const { data: refetchedInvs } = await listAll(dataClient.models.Invoice);
+        const sortedInvs = [...refetchedInvs].sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate));
+        setInvoices(sortedInvs);
+
+        const { data: refetchedEntries } = await listAll(dataClient.models.TimeEntry);
+        const sortedEntries = [...refetchedEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+        setEntries(sortedEntries);
+      } else {
+        const updatedInvoices = invoices.map(inv => inv.id === invoiceId ? { ...inv, status: 'Unpaid' } : inv);
+        setInvoices(updatedInvoices);
+        saveLocalInvoices(currentUser.id, updatedInvoices);
+
+        const updatedEntries = entries.map(e => e.invoiceNumber === invoiceToUnpay.invoiceNumber ? { ...e, status: 'Billed' } : e);
+        setEntries(updatedEntries);
+        saveLocalEntries(currentUser.id, updatedEntries);
+      }
+    } catch (err) {
+      console.error("Failed to mark invoice as unpaid:", err);
       alert("An error occurred while updating the invoice payment status.");
     } finally {
       setLoading(false);
@@ -1480,6 +1603,7 @@ export default function App() {
               clients={clients}
               entries={entries}
               onMarkPaid={handleMarkInvoicePaid}
+              onMarkUnpaid={handleMarkInvoiceUnpaid}
               onDeleteInvoice={handleDeleteInvoice}
               onRedownloadPDF={handleRedownloadInvoicePDF}
             />

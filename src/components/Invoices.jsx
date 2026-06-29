@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Calendar, FileText, Check, Trash2, Download, AlertCircle, Clock } from 'lucide-react';
 
-export default function Invoices({ invoices, clients, entries, onMarkPaid, onDeleteInvoice, onRedownloadPDF }) {
+export default function Invoices({ invoices, clients, entries, onMarkPaid, onMarkUnpaid, onDeleteInvoice, onRedownloadPDF }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterClient, setFilterClient] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -186,6 +186,16 @@ export default function Invoices({ invoices, clients, entries, onMarkPaid, onDel
                             <Check size={13} /> Pay
                           </button>
                         )}
+                        {inv.status === 'Paid' && (
+                          <button 
+                            className="btn btn-secondary btn-sm" 
+                            style={{ color: 'var(--color-unbilled)', borderColor: 'rgba(245, 158, 11, 0.2)' }}
+                            onClick={() => onMarkUnpaid(inv.id)}
+                            title="Mark as Unpaid"
+                          >
+                            <Clock size={13} /> Unpay
+                          </button>
+                        )}
                         <button 
                           className="btn btn-secondary btn-icon-only btn-sm" 
                           onClick={() => onRedownloadPDF(inv)}
@@ -254,6 +264,15 @@ export default function Invoices({ invoices, clients, entries, onMarkPaid, onDel
                         onClick={() => onMarkPaid(inv.id)}
                       >
                         <Check size={12} /> Pay
+                      </button>
+                    )}
+                    {inv.status === 'Paid' && (
+                      <button 
+                        className="btn btn-secondary btn-sm" 
+                        style={{ color: 'var(--color-unbilled)', borderColor: 'rgba(245, 158, 11, 0.2)', padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                        onClick={() => onMarkUnpaid(inv.id)}
+                      >
+                        <Clock size={12} /> Unpay
                       </button>
                     )}
                     <button className="btn btn-secondary btn-icon-only btn-sm" onClick={() => onRedownloadPDF(inv)}>
