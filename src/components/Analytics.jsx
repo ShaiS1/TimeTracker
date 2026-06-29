@@ -41,8 +41,6 @@ export default function Analytics({ entries, clients, invoices = [] }) {
         }
         stats['deleted'].earnings += amount;
         stats['deleted'].hours += e.duration;
-        grandTotalEarnings += amount;
-        grandTotalHours += e.duration;
       }
     });
 
@@ -60,7 +58,39 @@ export default function Analytics({ entries, clients, invoices = [] }) {
   
   const billableRatio = useMemo(() => totalHours > 0 ? (billableHours / totalHours) * 100 : 0, [billableHours, totalHours]);
   const hourlyYield = useMemo(() => totalHours > 0 ? clientStats.grandTotalEarnings / totalHours : 0, [clientStats.grandTotalEarnings, totalHours]);
-  const outstandingAR = useMemo(() => invoices.filter(inv => inv.status === 'Unpaid' || inv.status === 'Overdue').reduce((sum, inv) => sum + parseFloat(inv.amount || 0), 0), [invoices]);
+  const outstandingAR = useMemo(() => {
+    // Map of invoiceNumber -> taxRate
+    const taxRates = {};
+    invoices.forEach(inv => {
+      taxRates[inv.invoiceNumber] = inv.taxRate || 0;
+    });
+
+    let sum = 0;
+    const invoiceBilledTotals = {};
+    let nonInvoicedBilledTotal = 0;
+
+    entries.forEach(e => {
+      if (e.status === 'Billed' && e.isBillable !== false) {
+        const amount = e.duration * e.rate;
+        if (e.invoiceNumber && taxRates[e.invoiceNumber] !== undefined) {
+          if (!invoiceBilledTotals[e.invoiceNumber]) {
+            invoiceBilledTotals[e.invoiceNumber] = 0;
+          }
+          invoiceBilledTotals[e.invoiceNumber] += amount;
+        } else {
+          nonInvoicedBilledTotal += amount;
+        }
+      }
+    });
+
+    Object.entries(invoiceBilledTotals).forEach(([invNum, subtotal]) => {
+      const taxRate = taxRates[invNum] || 0;
+      sum += subtotal + (subtotal * (taxRate / 100));
+    });
+
+    sum += nonInvoicedBilledTotal;
+    return sum;
+  }, [entries, invoices]);
 
   // Category calculations
   const categoryStats = useMemo(() => {
