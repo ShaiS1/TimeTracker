@@ -1,6 +1,13 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 /**
  * Escapes a string value for CSV compatibility.
  */
@@ -107,7 +114,7 @@ export const generateTimesheetCSV = (userProfile, entries, clients) => {
   });
 
   const csvContent = csvRows.join('\n');
-  const filename = `tempo_timesheet_${userProfile.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.csv`;
+  const filename = `tempo_timesheet_${userProfile.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${getLocalDateString()}.csv`;
   downloadFile(csvContent, filename, 'text/csv;charset=utf-8;');
 };
 
@@ -185,7 +192,7 @@ export const generateTimesheetPDF = async (userProfile, entries, clients) => {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(lightTextColor[0], lightTextColor[1], lightTextColor[2]);
-  doc.text(`Generated on: ${formatDate(new Date().toISOString().split('T')[0])}`, titleX, 26);
+  doc.text(`Generated on: ${formatDate(getLocalDateString())}`, titleX, 26);
 
   // Contractor details (Top Right)
   doc.setFont('helvetica', 'bold');
@@ -371,6 +378,6 @@ export const generateTimesheetPDF = async (userProfile, entries, clients) => {
     }
   }
 
-  const filename = `tempo_timesheet_${userProfile.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.pdf`;
+  const filename = `tempo_timesheet_${userProfile.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${getLocalDateString()}.pdf`;
   doc.save(filename);
 };
