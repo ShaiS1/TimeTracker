@@ -24,11 +24,12 @@ This document tracks the feature roadmap, active task list, completed milestones
 | **Saved Filters** | Support saving custom views (e.g., "Current Month Unbilled Work", "Client-Specific Views") | ✅ Completed | v2.1.0 |
 | **Tax Estimator** | Suggest monthly tax reserves for 1099 independent contractors based on current tax settings | ✅ Completed | v2.2.0 |
 | **Invoice Email Integration** | Send PDF invoices directly to client emails from the app | 📋 Deferred | Backlog |
-| **Power-User Hotkeys** | Keyboard shortcuts for timer start/stop, tab switching, and log creation | 📋 Planned | v2.3.0 |
-| **Smart NLP Logging** | Support natural language parsing (e.g. "Acme 2h dev coding") to auto-create logs | 📋 Planned | v2.3.0 |
-| **Time Audit & Gap Finder** | Detect untracked gaps in standard working hours and prompt logging | 📋 Planned | v2.3.0 |
-| **Live Rounding Preview** | View actual vs. rounded time/revenue in real-time on running stopwatch | 📋 Planned | v2.3.0 |
-| **Tax Deadlines Integration** | Display IRS quarterly tax payment reminders with calendar export | 📋 Planned | v2.3.0 |
+| **Power-User Hotkeys** | Keyboard shortcuts for timer start/stop, tab switching, and log creation | ✅ Completed | v2.3.0 |
+| **Smart NLP Logging** | Support natural language parsing (e.g. "Acme 2h dev coding") to auto-create logs | ✅ Completed | v2.3.0 |
+| **Time Audit & Gap Finder** | Detect untracked gaps in standard working hours and prompt logging | ✅ Completed | v2.3.0 |
+| **Live Rounding Preview** | View actual vs. rounded time/revenue in real-time on running stopwatch | ✅ Completed | v2.3.0 |
+| **Tax Deadlines Integration** | Display IRS quarterly tax payment reminders with calendar export | ✅ Completed | v2.3.0 |
+| **Lifecycle Auto-Sync** | Bidirectional status sync between time logs and invoices + Invoices "Unpay" action | ✅ Completed | v2.3.0 |
 
 
 ---
@@ -70,9 +71,39 @@ This document tracks the feature roadmap, active task list, completed milestones
 * **Cause**: `generateInvoicePDF` was called without the `await` keyword.
 * **Resolution**: Added the `await` keyword to the PDF compiler call in `handleGenerateInvoicePDF`.
 
+### 🐛 Temporal Dead Zone in Dashboard (Fixed in v2.3.0)
+* **Issue**: Logging into Tempo displayed a blank black screen and threw `ReferenceError: Cannot access 'currentYear' before initialization` in the browser console.
+* **Cause**: The newly introduced tax deadline memo accessed `currentYear` before its declaration statement in the component body.
+* **Resolution**: Hoisted the quarterly date setups and variable declarations (including `currentYear` and `currentMonth`) to the very top of `Dashboard.jsx`.
+
+### 🐛 Mismatched Accounts Receivable in Analytics (Fixed in v2.3.0)
+* **Issue**: The Analytics "A/R Outstanding" metric showed incorrect amounts if the user manually updated time entries' statuses in the Logs list.
+* **Cause**: The metric was calculated using static, pre-saved invoice amounts rather than the entries' active states.
+* **Resolution**: Refactored the metric to calculate dynamically from the actual time entries in the system that are in `Billed` status, mapping their corresponding invoice tax rates.
+
+### 🐛 Double-Counting Legacy Clients in Analytics (Fixed in v2.3.0)
+* **Issue**: Grand total hours and earnings in the Analytics tab were double-counted for any time entries belonging to deleted/unknown clients.
+* **Cause**: The code added the entry's amount and duration to the grand totals once at the start of the loop, and again inside the legacy client fallback block.
+* **Resolution**: Removed the redundant increment code inside the fallback `else` block.
+
 ---
 
 ## 📜 Changelog
+
+### [v2.3.0] - 2026-06-29
+#### Added
+* **Global Keyboard Shortcuts (Hotkeys)**: Control the app using `Space` (toggle timer), `N`/`n` (open manual logger), `/` (search logs), and `1`-`8` (switch tabs).
+* **Smart NLP Log Parser**: Natural language query processor in manual logger to extract client, category, duration, and description automatically.
+* **Time Log Gap Finder**: Identify weekdays in the past week with logged hours below target (default 8h) with a direct click-to-log override.
+* **Estimated Tax Deadline Countdown**: Integrated tax deadline alerts inside 1099 Estimator card with remaining days countdown.
+* **Outlook-Friendly iCalendar Exporter**: Export quarterly estimated tax deadlines as standard, timezone-safe All-Day Event `.ics` files.
+* **Bidirectional Entry-Invoice Status Sync**: Modifying individual time entry statuses automatically recalculates and syncs parent invoice status.
+* **Unpay Invoice Action**: Added an "Unpay" action in the Invoices tab to transition paid invoices back to unpaid and reset entries to billed.
+
+#### Fixed
+* Fixed Temporal Dead Zone crash on dashboard mount caused by uninitialized `currentYear` variable.
+* Fixed Accounts Receivable calculation mismatch in Analytics screen.
+* Fixed double-counting bug for deleted/unknown client time logs.
 
 ### [v2.2.0] - 2026-06-17
 #### Added
