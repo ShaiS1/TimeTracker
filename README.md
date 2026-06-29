@@ -10,11 +10,15 @@ Developed with a local-first architecture and cloud database synchronization usi
 
 *   ⏱️ **Active Stopwatch Tracker**: Real-time timer synchronizing across windows and tabs, featuring delta-time calculations that resist browser thread freezing.
 *   🚦 **Timer Inactivity Idle Detection**: Protects logs by pausing running timers when you step away, with choices to resume, keep, or discard idle minutes.
-*   📂 **Client & Category Managers**: Full CRUD managers with visual pinning to float favorite clients or categories to the top of all input options.
+*   📂 **Client & Category Pinning**: Pin favorite clients and categories to float them to the top of all dropdowns and selection menus.
 *   🔍 **Time Logs Dashboard**: Filter, search, and sort timesheets, with bulk status transitions and named "Saved Views" for fast queries.
-*   🧾 **Invoices Registry & Limits**: Automated tax calculations, payment status updates (Unpaid, Paid, Overdue), and tracking of monthly/weekly client budget limits.
-*   📊 **1099 Tax Estimator**: Real-time tax reserve calculations showing automatic FICA Self-Employment taxes (effective flat `14.13%` rate) combined with custom state/federal income tax rates.
-*   📁 **PDF & CSV Exporting**: Generate formatted PDF invoices, timesheets, and CSV reports for direct billing records.
+*   🧾 **Invoices Registry & Lifecycle**: Automated tax calculations, payment status updates (Unpaid, Paid, Overdue), and tracking of monthly/weekly client budget limits.
+*   🔄 **Entry-to-Invoice Auto-Sync**: Bidirectional lifecycle synchronization between log statuses and invoice payments, including a direct "Unpay" restore trigger.
+*   📊 **1099 Tax Estimator**: Real-time tax reserve calculations showing automatic FICA Self-Employment taxes (effective flat `14.13%` rate) combined with custom income tax rates.
+*   📅 **Tax Deadline Exporter**: Tracks next upcoming estimated tax deadlines and exports timezone-safe, Outlook-friendly All-Day Event `.ics` files.
+*   ⌨️ **Power-User Keyboard Hotkeys**: Control the dashboard entirely via hotkeys: timer start/pause (`Space`), log creation (`N`), search (`/`), and tab swapping (`1`-`8`).
+*   🧠 **Smart NLP Log Parser**: Natural language queries parser to extract client names, task categories, and decimal durations from raw text.
+*   🩹 **Time Log Gap Finder**: Scans past weekdays for missing hours against your daily target, offering quick-log prompts to complete your timesheet.
 
 ---
 
