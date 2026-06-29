@@ -179,6 +179,7 @@ export default function EntryList({ entries, clients, userProfile, onDeleteEntry
           <div style={{ display: 'flex', alignSelf: 'stretch', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0 0.75rem', flex: 1, minWidth: '220px' }}>
             <Search size={18} style={{ color: 'var(--text-muted)' }} />
             <input 
+              id="logs-search-input"
               type="text" 
               placeholder="Search description, categories..." 
               value={searchQuery}

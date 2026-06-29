@@ -30,6 +30,138 @@ export default function Dashboard({ entries, clients, userProfile = {}, onNaviga
   const ficaRate = 14.13; // 15.3% on 92.35% effective rate
   const combinedRate = ficaRate + taxRate;
 
+  const dailyWorkTarget = userProfile.dailyWorkTarget || 8;
+
+  const gaps = React.useMemo(() => {
+    const getPastFiveWeekdays = () => {
+      const list = [];
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      
+      while (list.length < 5) {
+        const day = d.getDay();
+        if (day !== 0 && day !== 6) {
+          const dateStr = d.toISOString().split('T')[0];
+          const label = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+          list.push({ dateStr, label });
+        }
+        d.setDate(d.getDate() - 1);
+      }
+      return list;
+    };
+
+    const weekdays = getPastFiveWeekdays().reverse();
+    const dailyHours = {};
+    weekdays.forEach(wd => {
+      dailyHours[wd.dateStr] = 0;
+    });
+
+    entries.forEach(e => {
+      if (dailyHours[e.date] !== undefined) {
+        dailyHours[e.date] += e.duration;
+      }
+    });
+
+    const gapList = [];
+    weekdays.forEach(wd => {
+      const hours = dailyHours[wd.dateStr];
+      if (hours < dailyWorkTarget) {
+        gapList.push({
+          date: wd.dateStr,
+          label: wd.label,
+          logged: hours,
+          gap: parseFloat((dailyWorkTarget - hours).toFixed(2))
+        });
+      }
+    });
+
+    return gapList;
+  }, [entries, dailyWorkTarget]);
+
+  // Next IRS Tax Deadline Info
+  const taxDeadlineInfo = React.useMemo(() => {
+    const deadlines = [
+      { name: 'Q1 Estimated Tax Payment', date: new Date(currentYear, 3, 15), quarter: 1 },
+      { name: 'Q2 Estimated Tax Payment', date: new Date(currentYear, 5, 15), quarter: 2 },
+      { name: 'Q3 Estimated Tax Payment', date: new Date(currentYear, 8, 15), quarter: 3 },
+      { name: 'Q4 Estimated Tax Payment', date: new Date(currentYear, 0, 15), quarter: 4 },
+      { name: 'Q4 Estimated Tax Payment', date: new Date(currentYear + 1, 0, 15), quarter: 4 }
+    ];
+
+    const upcoming = deadlines
+      .filter(d => {
+        const dCopy = new Date(d.date);
+        dCopy.setHours(23, 59, 59, 999);
+        return dCopy >= now;
+      })
+      .sort((a, b) => a.date - b.date);
+
+    const next = upcoming[0];
+    if (!next) return null;
+
+    const diffMs = next.date - now;
+    const daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+
+    return {
+      ...next,
+      daysRemaining,
+      formattedDate: next.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    };
+  }, [now, currentYear]);
+
+  // Export Outlook-friendly iCalendar (.ics) all-day event
+  const handleExportICS = () => {
+    if (!taxDeadlineInfo) return;
+    
+    const date = taxDeadlineInfo.date;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    const nextDay = new Date(date);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const endYear = nextDay.getFullYear();
+    const endMonth = String(nextDay.getMonth() + 1).padStart(2, '0');
+    const endDay = String(nextDay.getDate()).padStart(2, '0');
+    
+    const startDateStr = `${year}${month}${day}`;
+    const endDateStr = `${endYear}${endMonth}${endDay}`;
+    const stampStr = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Tempo Tracker//Tax Deadlines//EN',
+      'METHOD:PUBLISH',
+      'BEGIN:VEVENT',
+      `UID:tax-deadline-q${taxDeadlineInfo.quarter}-${year}@tempotracker`,
+      `DTSTAMP:${stampStr}`,
+      `DTSTART;VALUE=DATE:${startDateStr}`,
+      `DTEND;VALUE=DATE:${endDateStr}`,
+      `SUMMARY:IRS ${taxDeadlineInfo.name} (Q${taxDeadlineInfo.quarter})`,
+      `DESCRIPTION:Reminder to file and pay your IRS quarterly estimated tax payments for Quarter ${taxDeadlineInfo.quarter}. Check your Tempo 1099 tax reserve tracker for estimated amounts!`,
+      'STATUS:CONFIRMED',
+      'SEQUENCE:0',
+      'TRANSP:TRANSPARENT',
+      'BEGIN:VALARM',
+      'TRIGGER:-P1D',
+      'DESCRIPTION:Reminder: IRS Estimated Tax Deadline Tomorrow',
+      'ACTION:DISPLAY',
+      'END:VALARM',
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\r\n');
+
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `IRS_Tax_Deadline_Q${taxDeadlineInfo.quarter}_${year}.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Metric aggregates
   let totalHours = 0;
   let totalEarnings = 0;
@@ -223,6 +355,37 @@ export default function Dashboard({ entries, clients, userProfile = {}, onNaviga
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '0.5rem' }}>
+            {taxDeadlineInfo && (
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '0.4rem 0.6rem',
+                fontSize: '0.75rem',
+                marginBottom: '0.25rem'
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>
+                    Next Deadline: <strong>{taxDeadlineInfo.formattedDate}</strong>
+                  </span>
+                  <span style={{ color: taxDeadlineInfo.daysRemaining <= 15 ? 'var(--color-danger)' : 'var(--text-muted)', fontSize: '0.65rem', fontWeight: 600 }}>
+                    {taxDeadlineInfo.daysRemaining === 0 ? 'Today!' : `${taxDeadlineInfo.daysRemaining} days remaining`}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleExportICS}
+                  style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}
+                >
+                  Add to Calendar
+                </button>
+              </div>
+            )}
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                 This Quarter <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({qName})</span>:
@@ -291,6 +454,54 @@ export default function Dashboard({ entries, clients, userProfile = {}, onNaviga
                   Configure Settings
                 </button>
               </div>
+            )}
+          </div>
+        </div>
+
+        {/* Time Log Gap Finder Card */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', minHeight: '220px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)', margin: 0 }}>Time Log Gap Finder</h3>
+            <span style={{ 
+              fontSize: '0.75rem', 
+              backgroundColor: gaps.length > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', 
+              color: gaps.length > 0 ? 'var(--color-danger)' : 'var(--color-paid)', 
+              padding: '0.15rem 0.5rem', 
+              borderRadius: '50px',
+              fontWeight: 600,
+              border: `1px solid ${gaps.length > 0 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`
+            }}>
+              {gaps.length === 0 ? 'All Hours Logged' : `${gaps.length} Gaps`}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem', flex: 1, overflowY: 'auto', maxHeight: '180px', paddingRight: '0.25rem' }}>
+            {gaps.length === 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                Awesome! You have met your target of {dailyWorkTarget}h/day for all workdays this past week.
+              </div>
+            ) : (
+              gaps.map((gap, idx) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', padding: '0.4rem 0.6rem', backgroundColor: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '4px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{gap.label}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>
+                      Logged: {gap.logged.toFixed(1)}h / Target: {dailyWorkTarget}h
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ color: 'var(--color-danger)', fontWeight: 600 }}>-{gap.gap.toFixed(1)}h</span>
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => onQuickLog && onQuickLog({ date: gap.date })}
+                      style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem' }}
+                    >
+                      Quick Log
+                    </button>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         </div>

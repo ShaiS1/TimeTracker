@@ -7,7 +7,7 @@ import outputs from '../../amplify_outputs.json';
 const isAmplifyConfigured = outputs && Object.keys(outputs).length > 0;
 const dataClient = isAmplifyConfigured ? generateClient() : null;
 
-export default function Timer({ userId, clients, categories, onLogEntry, entries = [] }) {
+export default function Timer({ userId, clients, categories, onLogEntry, entries = [], userProfile = {} }) {
   const [seconds, setSeconds] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -16,6 +16,58 @@ export default function Timer({ userId, clients, categories, onLogEntry, entries
   const [selectedCategory, setSelectedCategory] = useState('');
   const [description, setDescription] = useState('');
   const [isBillable, setIsBillable] = useState(true);
+
+  // Rounding helper
+  const getRoundedDurationLocal = (duration, clientId, clientsList, profile) => {
+    const client = clientsList.find(c => c.id === clientId);
+    let rule = client?.roundingRule || 'default';
+    
+    if (rule === 'default') {
+      rule = profile?.defaultRounding || 'none';
+    }
+    
+    if (rule === 'none') {
+      return duration;
+    }
+    
+    let rounded = duration;
+    if (rule === 'nearest_6') {
+      rounded = Math.round(duration * 10) / 10;
+    } else if (rule === 'nearest_15') {
+      rounded = Math.round(duration * 4) / 4;
+    } else if (rule === 'nearest_30') {
+      rounded = Math.round(duration * 2) / 2;
+    } else if (rule === 'ceil_15') {
+      rounded = Math.ceil(duration * 4) / 4;
+    }
+    
+    return rounded > 0 ? parseFloat(rounded.toFixed(2)) : 0.01;
+  };
+
+  const roundedHours = useMemo(() => {
+    if (!isActive || seconds <= 0) return 0;
+    const actualHours = seconds / 3600;
+    return getRoundedDurationLocal(actualHours, selectedClientId, clients, userProfile);
+  }, [seconds, isActive, selectedClientId, clients, userProfile]);
+
+  const activeClient = useMemo(() => {
+    return clients.find(c => c.id === selectedClientId) || null;
+  }, [clients, selectedClientId]);
+
+  const defaultRate = activeClient ? activeClient.defaultRate : 0;
+
+  // Handle global shortcut custom event to toggle timer
+  useEffect(() => {
+    const handleToggleEvent = () => {
+      if (isActive) {
+        handlePause();
+      } else {
+        handleStart();
+      }
+    };
+    window.addEventListener('tempo-toggle-timer', handleToggleEvent);
+    return () => window.removeEventListener('tempo-toggle-timer', handleToggleEvent);
+  }, [isActive, isPaused, selectedClientId, selectedCategory, description, isBillable, seconds]);
 
   const [idleThreshold, setIdleThreshold] = useState(() => {
     return parseFloat(localStorage.getItem(`tempo_idle_threshold_${userId}`)) || 5;
@@ -474,6 +526,25 @@ export default function Timer({ userId, clients, categories, onLogEntry, entries
             <span style={{ textDecoration: 'line-through' }}>Non-Billable ($0.00/hr)</span>
           )}
         </div>
+        {isActive && (
+          <div style={{ 
+            fontSize: '0.75rem', 
+            color: 'var(--text-secondary)', 
+            marginTop: '0.5rem', 
+            zIndex: 1, 
+            display: 'flex', 
+            gap: '0.6rem',
+            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid var(--border-color)',
+            padding: '0.2rem 0.5rem',
+            borderRadius: '50px',
+            animation: 'fadeIn 0.2s ease-out'
+          }}>
+            <span>Actual: {(seconds / 3600).toFixed(2)}h</span>
+            <span style={{ color: 'var(--border-color)', width: '1px' }}>|</span>
+            <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>Rounded Preview: {roundedHours.toFixed(2)}h {isBillable && `(${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(roundedHours * defaultRate)})`}</span>
+          </div>
+        )}
       </div>
 
       <div className="timer-controls" style={{ justifyContent: 'center', marginBottom: '1.5rem' }}>

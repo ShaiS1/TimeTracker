@@ -344,6 +344,68 @@ export default function App() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [currentUser]);
 
+  // Global Keyboard Shortcuts (Hotkeys)
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const handleKeyDown = (e) => {
+      const activeEl = document.activeElement;
+      const isInputFocused = activeEl && (
+        activeEl.tagName === 'INPUT' || 
+        activeEl.tagName === 'TEXTAREA' || 
+        activeEl.tagName === 'SELECT' ||
+        activeEl.isContentEditable
+      );
+
+      if (isInputFocused) return;
+
+      // Space: Toggle active timer
+      if (e.code === 'Space') {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('tempo-toggle-timer'));
+      }
+
+      // N: Open manual logger modal
+      if (e.key === 'N' || e.key === 'n') {
+        e.preventDefault();
+        setIsManualLogModalOpen(true);
+      }
+
+      // /: Focus search query inside entries list
+      if (e.key === '/') {
+        e.preventDefault();
+        setActiveTab('entries');
+        setTimeout(() => {
+          const searchInput = document.getElementById('logs-search-input');
+          if (searchInput) {
+            searchInput.focus();
+            searchInput.select();
+          }
+        }, 50);
+      }
+
+      // 1-8 keys: Switch navigation tabs
+      const tabKeys = ['1', '2', '3', '4', '5', '6', '7', '8'];
+      if (tabKeys.includes(e.key)) {
+        e.preventDefault();
+        const tabMap = {
+          '1': 'dashboard',
+          '2': 'timer',
+          '3': 'entries',
+          '4': 'invoices',
+          '5': 'clients',
+          '6': 'categories',
+          '7': 'analytics',
+          '8': 'profile'
+        };
+        setActiveTab(tabMap[e.key]);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentUser]);
+
   // Theme toggle
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
@@ -1141,6 +1203,7 @@ export default function App() {
           categories={categories} 
           onLogEntry={handleSaveEntry} 
           entries={entries}
+          userProfile={userProfile}
         />
       </div>
     );
@@ -1361,9 +1424,22 @@ export default function App() {
         <div className="view-container">
           {activeTab === 'dashboard' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-              <Dashboard entries={entries} clients={clients} userProfile={userProfile} onNavigate={setActiveTab} />
+              <Dashboard 
+                entries={entries} 
+                clients={clients} 
+                userProfile={userProfile} 
+                onNavigate={setActiveTab} 
+                onQuickLog={(initialValues) => setEditingEntry(initialValues)}
+              />
               <div className="dashboard-grid">
-                <Timer userId={userIdVal} clients={clients} categories={categories} onLogEntry={handleSaveEntry} entries={entries} />
+                <Timer 
+                  userId={userIdVal} 
+                  clients={clients} 
+                  categories={categories} 
+                  onLogEntry={handleSaveEntry} 
+                  entries={entries} 
+                  userProfile={userProfile}
+                />
                 <Analytics entries={entries} clients={clients} invoices={invoices} />
               </div>
             </div>
@@ -1371,7 +1447,14 @@ export default function App() {
           
           {activeTab === 'timer' && (
             <div style={{ maxWidth: '750px', margin: '0 auto' }}>
-              <Timer userId={userIdVal} clients={clients} categories={categories} onLogEntry={handleSaveEntry} entries={entries} />
+              <Timer 
+                userId={userIdVal} 
+                clients={clients} 
+                categories={categories} 
+                onLogEntry={handleSaveEntry} 
+                entries={entries} 
+                userProfile={userProfile}
+              />
             </div>
           )}
           
