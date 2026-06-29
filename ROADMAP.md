@@ -96,10 +96,10 @@ This document tracks the feature roadmap, active task list, completed milestones
 * **Cause**: Slicing the UTC string from `.toISOString().split('T')[0]` shifts the date to tomorrow when local time rolls past UTC midnight.
 * **Resolution**: Replaced all ISO date slicing with a local `getLocalDateString` helper that extracts the local browser YYYY-MM-DD.
 
-### 🐛 NLP Regex Special Character Crashes (Fixed in v2.3.0)
-* **Issue**: The Smart NLP parser crashed the application or failed to match when client or category names contained special regex characters (e.g. `C++`, `(West)`, `/`).
-* **Cause**: User-defined strings were interpolated directly into `new RegExp` templates without escaping regex syntax characters.
-* **Resolution**: Integrated an `escapeRegExp` helper function inside `EntryForm.jsx` to wrap all dynamic RegExp template strings.
+### 🐛 NLP Regex Special Character Crashes & Boundary Exclusions (Fixed in v2.3.0)
+* **Issue**: The Smart NLP parser crashed the application or failed to match when client or category names contained special regex characters (e.g. `C++`, `(West)`, `/`) or punctuation boundaries.
+* **Cause**: User-defined strings were interpolated directly into `new RegExp` templates without escaping regex syntax characters. Furthermore, standard word boundary wrappers `\b...\b` fail to match names that start or end with non-word punctuation characters.
+* **Resolution**: Integrated an `escapeRegExp` helper function inside `EntryForm.jsx` to wrap all dynamic RegExp template strings. Replaced `\b...\b` with boundary lookarounds `(?<=^|\s|[.,;:!?\"'()[\\]{}])` and `(?=$|\s|[.,;:!?\"'()[\\]{}])` that support punctuation prefixes/suffixes. Additionally, added a substring `indexOf` fallback search for category matching.
 
 ---
 
