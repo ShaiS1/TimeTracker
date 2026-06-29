@@ -18,6 +18,14 @@ import {
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Timer from './components/Timer';
+
+// Utility helper to get YYYY-MM-DD in local contractor time (prevents UTC date-shifts past 4/5 PM Pacific)
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 import EntryForm from './components/EntryForm';
 import EntryList from './components/EntryList';
 import ClientMgr from './components/ClientMgr';
@@ -738,6 +746,7 @@ export default function App() {
         });
         setEntries([data, ...entries]);
         setIsManualLogModalOpen(false);
+        setEditingEntry(null);
       }
     } else {
       let updated;
@@ -748,6 +757,7 @@ export default function App() {
         const newEntry = { ...finalPayload, id: `entry-${Date.now()}` };
         updated = [newEntry, ...entries];
         setIsManualLogModalOpen(false);
+        setEditingEntry(null);
       }
       setEntries(updated);
       saveLocalEntries(currentUser.id, updated);
@@ -914,13 +924,13 @@ export default function App() {
     
     setInvoiceNumber(invNum);
     
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     setInvoiceDate(todayStr);
     
     // Default Net 14 due date
     const due = new Date();
     due.setDate(due.getDate() + 14);
-    const dueStr = due.toISOString().split('T')[0];
+    const dueStr = getLocalDateString(due);
     setInvoiceDueDate(dueStr);
 
     setInvoiceModalOpen(true);
@@ -1034,12 +1044,12 @@ export default function App() {
     const billedCount = entries.filter(e => e.invoiceNumber).length;
     setBatchStartingNumber(`INV-${year}-${String(billedCount + 1).padStart(3, '0')}`);
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     setBatchDate(todayStr);
 
     const due = new Date();
     due.setDate(due.getDate() + 14);
-    setBatchDueDate(due.toISOString().split('T')[0]);
+    setBatchDueDate(getLocalDateString(due));
     setBatchTaxRate(userProfile.taxRate || 0);
 
     setBatchInvoiceModalOpen(true);

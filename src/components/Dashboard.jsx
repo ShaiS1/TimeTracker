@@ -1,7 +1,14 @@
 import React from 'react';
 import { DollarSign, Clock, FileText, CheckCircle, TrendingUp } from 'lucide-react';
 
-export default function Dashboard({ entries, clients, userProfile = {}, onNavigate }) {
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export default function Dashboard({ entries, clients, userProfile = {}, onNavigate, onQuickLog }) {
   // Utility to parse date strings properly without timezone shifts
   const parseEntryDate = (dateStr) => {
     const [year, month, day] = dateStr.split('-').map(Number);
@@ -63,7 +70,7 @@ export default function Dashboard({ entries, clients, userProfile = {}, onNaviga
       while (list.length < 5) {
         const day = d.getDay();
         if (day !== 0 && day !== 6) {
-          const dateStr = d.toISOString().split('T')[0];
+          const dateStr = getLocalDateString(d);
           const label = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
           list.push({ dateStr, label });
         }

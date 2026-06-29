@@ -1,6 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Calendar, FileText, Check, Trash2, Download, AlertCircle, Clock } from 'lucide-react';
 
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function Invoices({ invoices, clients, entries, onMarkPaid, onMarkUnpaid, onDeleteInvoice, onRedownloadPDF }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterClient, setFilterClient] = useState('');
@@ -20,7 +27,7 @@ export default function Invoices({ invoices, clients, entries, onMarkPaid, onMar
 
   // Derived status and overdue check helper
   const resolvedInvoices = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     return invoices.map(inv => {
       let status = inv.status;
       if (status === 'Unpaid' && inv.dueDate < todayStr) {

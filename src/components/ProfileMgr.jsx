@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { User, ShieldAlert, Download, Upload, Trash2, LogOut } from 'lucide-react';
 import { exportBackup, importBackup } from '../utils/storage';
 
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function ProfileMgr({ userProfile, onUpdateProfile, onDeleteAccount, onLogout }) {
   const [name, setName] = useState(userProfile.name || '');
   const [email, setEmail] = useState(userProfile.email || '');
@@ -31,7 +38,7 @@ export default function ProfileMgr({ userProfile, onUpdateProfile, onDeleteAccou
     const dataStr = exportBackup();
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
     
-    const exportFileDefaultName = `tempo_backup_${new Date().toISOString().split('T')[0]}.json`;
+    const exportFileDefaultName = `tempo_backup_${getLocalDateString()}.json`;
     
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);

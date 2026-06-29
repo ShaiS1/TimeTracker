@@ -1,11 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Edit } from 'lucide-react';
 
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const escapeRegExp = (string) => {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
 export default function EntryForm({ clients, categories, onLogEntry, initialValues, onCancel }) {
   const [clientId, setClientId] = useState('');
   const [category, setCategory] = useState('');
   const [duration, setDuration] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(getLocalDateString());
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState('Unbilled');
   const [isBillable, setIsBillable] = useState(true);
@@ -31,7 +42,7 @@ export default function EntryForm({ clients, categories, onLogEntry, initialValu
     // 2. Parse client
     const sortedClients = [...clients].sort((a, b) => b.name.length - a.name.length);
     for (const client of sortedClients) {
-      const clientRegex = new RegExp(`\\b${client.name}\\b`, 'i');
+      const clientRegex = new RegExp(`\\b${escapeRegExp(client.name)}\\b`, 'i');
       if (clientRegex.test(parsedDescription)) {
         parsedClientId = client.id;
         parsedDescription = parsedDescription.replace(clientRegex, '');
@@ -57,7 +68,7 @@ export default function EntryForm({ clients, categories, onLogEntry, initialValu
     for (const cat of sortedCats) {
       const catName = cat.name || '';
       if (!catName) continue;
-      const catRegex = new RegExp(`\\b${catName}\\b`, 'i');
+      const catRegex = new RegExp(`\\b${escapeRegExp(catName)}\\b`, 'i');
       if (catRegex.test(parsedDescription)) {
         parsedCategory = catName;
         parsedDescription = parsedDescription.replace(catRegex, '');
@@ -86,7 +97,7 @@ export default function EntryForm({ clients, categories, onLogEntry, initialValu
             if (list.some(syn => words.includes(syn))) {
               parsedCategory = catName;
               const matchedSyn = list.find(syn => words.includes(syn));
-              const synRegex = new RegExp(`\\b${matchedSyn}\\b`, 'i');
+              const synRegex = new RegExp(`\\b${escapeRegExp(matchedSyn)}\\b`, 'i');
               parsedDescription = parsedDescription.replace(synRegex, '');
               matched = true;
               break;
@@ -143,7 +154,7 @@ export default function EntryForm({ clients, categories, onLogEntry, initialValu
       setClientId(initialValues.clientId || '');
       setCategory(initialValues.category || '');
       setDuration(initialValues.duration ? initialValues.duration.toString() : '');
-      setDate(initialValues.date || new Date().toISOString().split('T')[0]);
+      setDate(initialValues.date || getLocalDateString());
       setDescription(initialValues.description || '');
       setStatus(initialValues.status || 'Unbilled');
       setIsBillable(initialValues.isBillable !== false);
@@ -194,10 +205,10 @@ export default function EntryForm({ clients, categories, onLogEntry, initialValu
     onLogEntry(payload);
     
     // Reset if it's a new entry
-    if (!initialValues) {
+    if (!initialValues || !initialValues.id) {
       setDuration('');
       setDescription('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(getLocalDateString());
       setIsBillable(true);
     }
   };
@@ -207,11 +218,11 @@ export default function EntryForm({ clients, categories, onLogEntry, initialValu
       <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '0.5rem' }}>
         <Edit size={20} style={{ color: 'var(--color-primary)' }} />
         <h2 style={{ fontSize: '1.1rem', fontWeight: 600 }}>
-          {initialValues ? 'Modify Time Log' : 'Manual Time Logger'}
+          {initialValues && initialValues.id ? 'Modify Time Log' : 'Manual Time Logger'}
         </h2>
       </div>
 
-      {!initialValues && (
+      {!initialValues?.id && (
         <div className="form-group" style={{ borderBottom: '1px dashed var(--border-color)', paddingBottom: '1.25rem', marginBottom: '0.25rem' }}>
           <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
             <span>Smart NLP Log Parser (Beta)</span>
