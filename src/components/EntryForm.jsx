@@ -42,7 +42,7 @@ export default function EntryForm({ clients, categories, onLogEntry, initialValu
     // 2. Parse client
     const sortedClients = [...clients].sort((a, b) => b.name.length - a.name.length);
     for (const client of sortedClients) {
-      const clientRegex = new RegExp(`\\b${escapeRegExp(client.name)}\\b`, 'i');
+      const clientRegex = new RegExp(`(?<=^|\\s|[.,;:!?\"'()[\\]{}])${escapeRegExp(client.name)}(?=$|\\s|[.,;:!?\"'()[\\]{}])`, 'i');
       if (clientRegex.test(parsedDescription)) {
         parsedClientId = client.id;
         parsedDescription = parsedDescription.replace(clientRegex, '');
@@ -68,11 +68,24 @@ export default function EntryForm({ clients, categories, onLogEntry, initialValu
     for (const cat of sortedCats) {
       const catName = cat.name || '';
       if (!catName) continue;
-      const catRegex = new RegExp(`\\b${escapeRegExp(catName)}\\b`, 'i');
+      const catRegex = new RegExp(`(?<=^|\\s|[.,;:!?\"'()[\\]{}])${escapeRegExp(catName)}(?=$|\\s|[.,;:!?\"'()[\\]{}])`, 'i');
       if (catRegex.test(parsedDescription)) {
         parsedCategory = catName;
         parsedDescription = parsedDescription.replace(catRegex, '');
         break;
+      }
+    }
+    if (!parsedCategory) {
+      for (const cat of sortedCats) {
+        const catName = cat.name || '';
+        if (!catName) continue;
+        const catIndex = parsedDescription.toLowerCase().indexOf(catName.toLowerCase());
+        if (catIndex !== -1) {
+          parsedCategory = catName;
+          parsedDescription = parsedDescription.substring(0, catIndex) + 
+                              parsedDescription.substring(catIndex + catName.length);
+          break;
+        }
       }
     }
 
@@ -97,7 +110,7 @@ export default function EntryForm({ clients, categories, onLogEntry, initialValu
             if (list.some(syn => words.includes(syn))) {
               parsedCategory = catName;
               const matchedSyn = list.find(syn => words.includes(syn));
-              const synRegex = new RegExp(`\\b${escapeRegExp(matchedSyn)}\\b`, 'i');
+              const synRegex = new RegExp(`(?<=^|\\s|[.,;:!?\"'()[\\]{}])${escapeRegExp(matchedSyn)}(?=$|\\s|[.,;:!?\"'()[\\]{}])`, 'i');
               parsedDescription = parsedDescription.replace(synRegex, '');
               matched = true;
               break;
