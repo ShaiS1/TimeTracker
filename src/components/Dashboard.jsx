@@ -25,6 +25,28 @@ export default function Dashboard({ entries, clients, userProfile = {}, onNaviga
   const now = new Date();
   const startOfWeek = getStartOfWeek();
   const startOfMonth = getStartOfMonth();
+
+  // Quarterly calculation setups (declared at top to prevent TDZ ReferenceErrors)
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth(); // 0-11
+  let qStart, qEnd, qName;
+  if (currentMonth >= 0 && currentMonth <= 2) {
+    qStart = new Date(currentYear, 0, 1);
+    qEnd = new Date(currentYear, 2, 31, 23, 59, 59);
+    qName = 'Q1 (Jan-Mar)';
+  } else if (currentMonth >= 3 && currentMonth <= 5) {
+    qStart = new Date(currentYear, 3, 1);
+    qEnd = new Date(currentYear, 5, 30, 23, 59, 59);
+    qName = 'Q2 (Apr-Jun)';
+  } else if (currentMonth >= 6 && currentMonth <= 8) {
+    qStart = new Date(currentYear, 6, 1);
+    qEnd = new Date(currentYear, 8, 30, 23, 59, 59);
+    qName = 'Q3 (Jul-Sep)';
+  } else {
+    qStart = new Date(currentYear, 9, 1);
+    qEnd = new Date(currentYear, 11, 31, 23, 59, 59);
+    qName = 'Q4 (Oct-Dec)';
+  }
   
   const taxRate = userProfile.taxRate || 0;
   const ficaRate = 14.13; // 15.3% on 92.35% effective rate
@@ -174,27 +196,7 @@ export default function Dashboard({ entries, clients, userProfile = {}, onNaviga
   let monthHours = 0;
   let monthEarnings = 0;
 
-  // Quarterly calculation setups
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth(); // 0-11
-  let qStart, qEnd, qName;
-  if (currentMonth >= 0 && currentMonth <= 2) {
-    qStart = new Date(currentYear, 0, 1);
-    qEnd = new Date(currentYear, 2, 31, 23, 59, 59);
-    qName = 'Q1 (Jan-Mar)';
-  } else if (currentMonth >= 3 && currentMonth <= 5) {
-    qStart = new Date(currentYear, 3, 1);
-    qEnd = new Date(currentYear, 5, 30, 23, 59, 59);
-    qName = 'Q2 (Apr-Jun)';
-  } else if (currentMonth >= 6 && currentMonth <= 8) {
-    qStart = new Date(currentYear, 6, 1);
-    qEnd = new Date(currentYear, 8, 30, 23, 59, 59);
-    qName = 'Q3 (Jul-Sep)';
-  } else {
-    qStart = new Date(currentYear, 9, 1);
-    qEnd = new Date(currentYear, 11, 31, 23, 59, 59);
-    qName = 'Q4 (Oct-Dec)';
-  }
+  // (Quarterly calculations moved to the top of the component body to avoid Temporal Dead Zone errors)
 
   let quarterEarnings = 0;
 
