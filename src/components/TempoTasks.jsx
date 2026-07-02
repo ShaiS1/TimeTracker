@@ -57,13 +57,27 @@ export default function TempoTasks({ userId, isAmplifyConfigured, dataClient, ca
   const [taskPriority, setTaskPriority] = useState('medium');
   const [taskScheduledForToday, setTaskScheduledForToday] = useState(true);
 
+  // Helper to recursively retrieve paginated model listings
+  const listAll = useCallback(async (model) => {
+    let allItems = [];
+    let nextToken = null;
+    do {
+      const res = await model.list({ nextToken });
+      if (res.data) {
+        allItems = allItems.concat(res.data);
+      }
+      nextToken = res.nextToken;
+    } while (nextToken);
+    return { data: allItems };
+  }, []);
+
   // Fetch initial tasks & sessions data
   const fetchTasksData = useCallback(async () => {
     if (isAmplifyConfigured && dataClient) {
       try {
-        const { data: tasksData } = await dataClient.models.Task.list();
+        const { data: tasksData } = await listAll(dataClient.models.Task);
         setTasksList(tasksData || []);
-        const { data: sessionsData } = await dataClient.models.TaskSession.list();
+        const { data: sessionsData } = await listAll(dataClient.models.TaskSession);
         setSessionsList(sessionsData || []);
       } catch (err) {
         console.error("[TempoTasks] Failed to fetch cloud tasks:", err);
@@ -72,7 +86,7 @@ export default function TempoTasks({ userId, isAmplifyConfigured, dataClient, ca
       setTasksList(getLocalTasks(userId));
       setSessionsList(getLocalTaskSessions(userId));
     }
-  }, [userId, isAmplifyConfigured, dataClient]);
+  }, [userId, isAmplifyConfigured, dataClient, listAll]);
 
   useEffect(() => {
     fetchTasksData();
@@ -265,13 +279,45 @@ export default function TempoTasks({ userId, isAmplifyConfigured, dataClient, ca
   const handleMoveToBacklog = async (task, e) => {
     e.stopPropagation();
     
-    // Stop/Pause timer if running
+    let updatedTask = { ...task };
+    
+    // Stop/Pause timer if running and merge updates
     if (activeTimer && activeTimer.taskId === task.id) {
-      await handlePauseTimer(task);
+      const sessionSeconds = Math.floor((Date.now() - activeTimer.startTime) / 1000);
+      const totalAccumulatedSeconds = activeTimer.accumulatedSeconds + sessionSeconds;
+      const sessionMinutes = parseFloat((sessionSeconds / 60).toFixed(2));
+
+      setActiveTimer({
+        ...activeTimer,
+        isRunning: false,
+        accumulatedSeconds: totalAccumulatedSeconds
+      });
+
+      // Create session
+      const sessionPayload = {
+        taskId: task.id,
+        startedAt: new Date(activeTimer.startTime).toISOString(),
+        endedAt: new Date().toISOString(),
+        durationMinutes: sessionMinutes
+      };
+
+      if (isAmplifyConfigured && dataClient) {
+        await dataClient.models.TaskSession.create(sessionPayload);
+      } else {
+        const newSession = {
+          ...sessionPayload,
+          id: `session-${Date.now()}`
+        };
+        const updatedSessions = [...sessionsList, newSession];
+        saveLocalTaskSessions(userId, updatedSessions);
+      }
+
+      updatedTask.actualMinutes = parseFloat(((task.actualMinutes || 0) + sessionMinutes).toFixed(2));
+      updatedTask.status = 'paused';
     }
 
     const payload = {
-      ...task,
+      ...updatedTask,
       scheduledDate: null
     };
 
@@ -341,7 +387,7 @@ export default function TempoTasks({ userId, isAmplifyConfigured, dataClient, ca
     const payload = {
       ...task,
       status: 'paused',
-      actualMinutes: parseFloat((task.actualMinutes + sessionMinutes).toFixed(2))
+      actualMinutes: parseFloat(((task.actualMinutes || 0) + sessionMinutes).toFixed(2))
     };
 
     if (isAmplifyConfigured && dataClient) {
@@ -362,7 +408,7 @@ export default function TempoTasks({ userId, isAmplifyConfigured, dataClient, ca
   };
 
   const handleCompleteTask = async (task) => {
-    let finalActualMinutes = task.actualMinutes;
+    let finalActualMinutes = task.actualMinutes || 0;
 
     // Wrap up active timer session if running
     if (activeTimer && activeTimer.taskId === task.id) {
@@ -372,7 +418,7 @@ export default function TempoTasks({ userId, isAmplifyConfigured, dataClient, ca
       const sessionMinutes = parseFloat((sessionSeconds / 60).toFixed(2));
       
       if (sessionMinutes > 0) {
-        finalActualMinutes = parseFloat((task.actualMinutes + sessionMinutes).toFixed(2));
+        finalActualMinutes = parseFloat(((task.actualMinutes || 0) + sessionMinutes).toFixed(2));
         
         const sessionPayload = {
           taskId: task.id,
@@ -555,11 +601,11 @@ export default function TempoTasks({ userId, isAmplifyConfigured, dataClient, ca
   const renderTaskRow = (task) => {
     const isTimerOnThisTask = activeTimer && activeTimer.taskId === task.id;
     const displayActualMinutes = isTimerOnThisTask 
-      ? task.actualMinutes + (elapsedTimerSeconds - activeTimer.accumulatedSeconds) / 60 
-      : task.actualMinutes;
+      ? (task.actualMinutes || 0) + (elapsedTimerSeconds - activeTimer.accumulatedSeconds) / 60 
+      : (task.actualMinutes || 0);
 
-    const accuracy = task.status === 'done' ? calculateAccuracy(task.estimatedMinutes, task.actualMinutes) : 0;
-    const variance = task.actualMinutes - task.estimatedMinutes;
+    const accuracy = task.status === 'done' ? calculateAccuracy(task.estimatedMinutes, (task.actualMinutes || 0)) : 0;
+    const variance = (task.actualMinutes || 0) - task.estimatedMinutes;
 
     return (
       <div 
@@ -1223,7 +1269,7 @@ export default function TempoTasks({ userId, isAmplifyConfigured, dataClient, ca
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Actual Investment:</span>
                   <strong style={{ fontSize: '1rem', color: 'var(--color-unbilled)' }}>
-                    {formatMinutesToDuration(viewingTask.actualMinutes)}
+                    {formatMinutesToDuration(viewingTask.actualMinutes || 0)}
                   </strong>
                 </div>
 
@@ -1231,13 +1277,13 @@ export default function TempoTasks({ userId, isAmplifyConfigured, dataClient, ca
                   <div style={{ gridColumn: 'span 2', borderTop: '1px dashed var(--border-color)', paddingTop: '0.65rem', display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                     <span>Planning Accuracy:</span>
                     <strong style={{ color: 'var(--color-paid)' }}>
-                      {calculateAccuracy(viewingTask.estimatedMinutes, viewingTask.actualMinutes)}%
+                      {calculateAccuracy(viewingTask.estimatedMinutes, (viewingTask.actualMinutes || 0))}%
                     </strong>
                     <span>Variance:</span>
-                    <strong style={{ color: (viewingTask.actualMinutes - viewingTask.estimatedMinutes) > 0 ? 'var(--color-danger)' : 'var(--color-paid)' }}>
-                      {viewingTask.actualMinutes - viewingTask.estimatedMinutes === 0 
+                    <strong style={{ color: ((viewingTask.actualMinutes || 0) - viewingTask.estimatedMinutes) > 0 ? 'var(--color-danger)' : 'var(--color-paid)' }}>
+                      {(viewingTask.actualMinutes || 0) - viewingTask.estimatedMinutes === 0 
                         ? '0m' 
-                        : `${(viewingTask.actualMinutes - viewingTask.estimatedMinutes) > 0 ? '+' : ''}${formatMinutesToDuration(viewingTask.actualMinutes - viewingTask.estimatedMinutes)}`}
+                        : `${((viewingTask.actualMinutes || 0) - viewingTask.estimatedMinutes) > 0 ? '+' : ''}${formatMinutesToDuration((viewingTask.actualMinutes || 0) - viewingTask.estimatedMinutes)}`}
                     </strong>
                   </div>
                 )}

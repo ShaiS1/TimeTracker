@@ -57,7 +57,9 @@ import {
   getTimerState,
   saveTimerState,
   getSavedFilters as getLocalSavedFilters,
-  saveSavedFilters as saveLocalSavedFilters
+  saveSavedFilters as saveLocalSavedFilters,
+  getTasks as getLocalTasks,
+  saveTasks as saveLocalTasks
 } from './utils/storage';
 
 import { generateInvoicePDF } from './utils/pdfGenerator';
@@ -492,12 +494,32 @@ export default function App() {
           
           const { data: catsList } = await listAll(dataClient.models.Category);
           const deleteCats = catsList.map(c => dataClient.models.Category.delete({ id: c.id }));
-          const deleteProfile = dataClient.models.UserProfile.delete({ id: userProfile.id });
+          const deleteProfile = userProfile ? [dataClient.models.UserProfile.delete({ id: userProfile.id })] : [];
 
           const { data: timersList } = await listAll(dataClient.models.ActiveTimer);
           const deleteTimers = timersList.map(t => dataClient.models.ActiveTimer.delete({ id: t.id }));
 
-          await Promise.all([...deleteClients, ...deleteEntries, ...deleteCats, ...deleteTimers, deleteProfile]);
+          // Fetch and delete Tasks and TaskSessions
+          const { data: tasksList } = await listAll(dataClient.models.Task);
+          const deleteTasks = tasksList.map(t => dataClient.models.Task.delete({ id: t.id }));
+
+          const { data: sessionsList } = await listAll(dataClient.models.TaskSession);
+          const deleteSessions = sessionsList.map(s => dataClient.models.TaskSession.delete({ id: s.id }));
+
+          await Promise.all([
+            ...deleteClients, 
+            ...deleteEntries, 
+            ...deleteCats, 
+            ...deleteTimers, 
+            ...deleteTasks, 
+            ...deleteSessions,
+            ...deleteProfile
+          ]);
+
+          // Clear local planning storage cache keys
+          localStorage.removeItem(`tempo_tasks_${currentUser.userId}`);
+          localStorage.removeItem(`tempo_task_sessions_${currentUser.userId}`);
+          localStorage.removeItem(`tempo_active_task_timer_${currentUser.userId}`);
 
           // 2. Delete Cognito Authentication Account
           await deleteUser();
@@ -509,6 +531,9 @@ export default function App() {
           localStorage.removeItem(`tempo_entries_${currentUser.id}`);
           localStorage.removeItem(`tempo_user_profile_${currentUser.id}`);
           localStorage.removeItem(`tempo_timer_state_${currentUser.id}`);
+          localStorage.removeItem(`tempo_tasks_${currentUser.id}`);
+          localStorage.removeItem(`tempo_task_sessions_${currentUser.id}`);
+          localStorage.removeItem(`tempo_active_task_timer_${currentUser.id}`);
           
           const users = JSON.parse(localStorage.getItem('tempo_users')) || [];
           const updatedUsers = users.filter(u => u.id !== currentUser.id);
@@ -606,7 +631,7 @@ export default function App() {
       const { data } = await dataClient.models.Category.update({ id, name: newCatName });
       setCategories(categories.map(c => c.id === id ? data : c));
 
-      // Cascade update to entries in DynamoDB
+      // Cascade update to entries and tasks in DynamoDB
       if (oldCat) {
         const entriesToUpdate = entries.filter(e => e.category === oldCat.name);
         await Promise.all(entriesToUpdate.map(e => dataClient.models.TimeEntry.update({ id: e.id, category: newCatName })));
@@ -614,6 +639,11 @@ export default function App() {
         const { data: refetchedEntries } = await listAll(dataClient.models.TimeEntry);
         const sorted = [...refetchedEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
         setEntries(sorted);
+
+        // Cascade to tasks
+        const { data: tasksList } = await listAll(dataClient.models.Task);
+        const tasksToUpdate = tasksList.filter(t => t.category === oldCat.name);
+        await Promise.all(tasksToUpdate.map(t => dataClient.models.Task.update({ id: t.id, category: newCatName })));
       }
     } else {
       const oldCat = categories.find(c => c.id === id);
@@ -625,6 +655,11 @@ export default function App() {
         const updatedEntries = entries.map(e => e.category === oldCat.name ? { ...e, category: newCatName } : e);
         setEntries(updatedEntries);
         saveLocalEntries(currentUser.id, updatedEntries);
+
+        // Cascade to local tasks
+        const localTasks = getLocalTasks(currentUser.id);
+        const updatedTasks = localTasks.map(t => t.category === oldCat.name ? { ...t, category: newCatName } : t);
+        saveLocalTasks(currentUser.id, updatedTasks);
       }
     }
   };
