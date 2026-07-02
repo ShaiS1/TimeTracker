@@ -10,7 +10,9 @@ const STORAGE_KEYS = {
   CATEGORIES_PREFIX: 'tempo_categories_',
   ENTRIES_PREFIX: 'tempo_entries_',
   USER_PROFILE_PREFIX: 'tempo_user_profile_',
-  INVOICES_PREFIX: 'tempo_invoices_'
+  INVOICES_PREFIX: 'tempo_invoices_',
+  TASKS_PREFIX: 'tempo_tasks_',
+  TASK_SESSIONS_PREFIX: 'tempo_task_sessions_'
 };
 
 const DEFAULT_CATEGORIES = [
@@ -247,6 +249,12 @@ export const initializeUserStorage = (userId) => {
   if (!localStorage.getItem(STORAGE_KEYS.INVOICES_PREFIX + userId)) {
     localStorage.setItem(STORAGE_KEYS.INVOICES_PREFIX + userId, JSON.stringify([]));
   }
+  if (!localStorage.getItem(STORAGE_KEYS.TASKS_PREFIX + userId)) {
+    localStorage.setItem(STORAGE_KEYS.TASKS_PREFIX + userId, JSON.stringify([]));
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.TASK_SESSIONS_PREFIX + userId)) {
+    localStorage.setItem(STORAGE_KEYS.TASK_SESSIONS_PREFIX + userId, JSON.stringify([]));
+  }
 };
 
 // Clients CRUD (Namespaced)
@@ -329,6 +337,30 @@ export const saveSavedFilters = (userId, filters) => {
   localStorage.setItem('tempo_saved_filters_' + userId, JSON.stringify(filters));
 };
 
+// Tasks CRUD (Namespaced)
+export const getTasks = (userId) => {
+  if (!userId) return [];
+  initializeUserStorage(userId);
+  return JSON.parse(localStorage.getItem(STORAGE_KEYS.TASKS_PREFIX + userId)) || [];
+};
+
+export const saveTasks = (userId, tasks) => {
+  if (!userId) return;
+  localStorage.setItem(STORAGE_KEYS.TASKS_PREFIX + userId, JSON.stringify(tasks));
+};
+
+// Task Sessions CRUD (Namespaced)
+export const getTaskSessions = (userId) => {
+  if (!userId) return [];
+  initializeUserStorage(userId);
+  return JSON.parse(localStorage.getItem(STORAGE_KEYS.TASK_SESSIONS_PREFIX + userId)) || [];
+};
+
+export const saveTaskSessions = (userId, sessions) => {
+  if (!userId) return;
+  localStorage.setItem(STORAGE_KEYS.TASK_SESSIONS_PREFIX + userId, JSON.stringify(sessions));
+};
+
 // Theme helper
 export const getTheme = () => {
   return localStorage.getItem(STORAGE_KEYS.THEME) || 'dark';
@@ -348,7 +380,9 @@ export const exportBackup = (userId) => {
     entries: getEntries(activeUserId),
     userProfile: getUserProfile(activeUserId),
     invoices: getInvoices(activeUserId),
-    savedFilters: getSavedFilters(activeUserId)
+    savedFilters: getSavedFilters(activeUserId),
+    tasks: getTasks(activeUserId),
+    taskSessions: getTaskSessions(activeUserId)
   };
   return JSON.stringify(data, null, 2);
 };
@@ -373,6 +407,12 @@ export const importBackup = (userId, jsonString) => {
       }
       if (data.savedFilters) {
         saveSavedFilters(activeUserId, data.savedFilters);
+      }
+      if (data.tasks) {
+        saveTasks(activeUserId, data.tasks);
+      }
+      if (data.taskSessions) {
+        saveTaskSessions(activeUserId, data.taskSessions);
       }
       return true;
     }

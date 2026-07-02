@@ -12,7 +12,10 @@ import {
   FileText,
   X,
   LogOut,
-  Receipt
+  Receipt,
+  CheckSquare,
+  Inbox,
+  TrendingUp
 } from 'lucide-react';
 
 import Login from './components/Login';
@@ -33,6 +36,7 @@ import CategoryMgr from './components/CategoryMgr';
 import Analytics from './components/Analytics';
 import ProfileMgr from './components/ProfileMgr';
 import Invoices from './components/Invoices';
+import TempoTasks from './components/TempoTasks';
 
 // Local Storage Fallback Helpers
 import { 
@@ -161,7 +165,7 @@ export default function App() {
             name: attributes.name || attributes.given_name || ''
           };
           setCurrentUser(mergedUser);
-        } catch (e) {
+        } catch {
           // No active Cognito session
           setCurrentUser(null);
         }
@@ -277,7 +281,7 @@ export default function App() {
           const sortedInvoices = [...invoicesData].sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate));
           setInvoices(sortedInvoices);
 
-          // 6. Fetch Saved Filters
+           // 6. Fetch Saved Filters
           const { data: savedFiltersData } = await listAll(dataClient.models.SavedFilter);
           setSavedFilters(savedFiltersData);
         } catch (err) {
@@ -1362,6 +1366,9 @@ export default function App() {
 
         <nav>
           <ul className="nav-links">
+            <li className="nav-section-title" style={{ padding: '0.4rem 1rem', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.8 }}>
+              Time & Billing
+            </li>
             <li>
               <button 
                 className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
@@ -1413,12 +1420,57 @@ export default function App() {
             </li>
             <li>
               <button 
+                className={`nav-item ${activeTab === 'analytics' ? 'active' : ''}`}
+                onClick={() => setActiveTab('analytics')}
+              >
+                <BarChart3 size={20} />
+                <span>Analytics</span>
+              </button>
+            </li>
+            <li>
+              <button 
                 className={`nav-item ${activeTab === 'clients' ? 'active' : ''}`}
                 onClick={() => setActiveTab('clients')}
               >
                 <Users size={20} />
                 <span>Clients</span>
               </button>
+            </li>
+
+            <li className="nav-section-title" style={{ padding: '0.4rem 1rem', marginTop: '0.5rem', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.8 }}>
+              PLANNING
+            </li>
+            <li>
+              <button 
+                className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`}
+                onClick={() => setActiveTab('tasks')}
+              >
+                <CheckSquare size={20} />
+                <span>Task Planner</span>
+              </button>
+            </li>
+            <li>
+              <button 
+                className={`nav-item ${activeTab === 'backlog' ? 'active' : ''}`}
+                onClick={() => setActiveTab('backlog')}
+              >
+                <Inbox size={20} />
+                <span>Task Backlog</span>
+              </button>
+            </li>
+            <li>
+              <button 
+                className={`nav-item ${activeTab === 'task-analytics' ? 'active' : ''}`}
+                onClick={() => setActiveTab('task-analytics')}
+              >
+                <TrendingUp size={20} />
+                <span>Planning Analytics</span>
+              </button>
+            </li>
+
+            {/* Global Configuration Utilities */}
+            <li className="nav-section-title" style={{ padding: '0.4rem 1rem', marginTop: '1.25rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginBottom: '0.25rem', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.8 }}>
+              MANAGE
             </li>
             <li>
               <button 
@@ -1431,15 +1483,6 @@ export default function App() {
             </li>
             <li>
               <button 
-                className={`nav-item ${activeTab === 'analytics' ? 'active' : ''}`}
-                onClick={() => setActiveTab('analytics')}
-              >
-                <BarChart3 size={20} />
-                <span>Analytics</span>
-              </button>
-            </li>
-            <li>
-              <button 
                 className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
                 onClick={() => setActiveTab('profile')}
               >
@@ -1447,9 +1490,7 @@ export default function App() {
                 <span>Settings</span>
               </button>
             </li>
-            
-            {/* Log Out Action */}
-            <li style={{ marginTop: '2.5rem' }}>
+            <li style={{ marginTop: '0.75rem' }}>
               <button 
                 className="nav-item"
                 onClick={handleLogout}
@@ -1487,7 +1528,13 @@ export default function App() {
         <header className="top-header">
           <div className="page-title">
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <h1 style={{ textTransform: 'capitalize', margin: 0 }}>{activeTab}</h1>
+              <h1 style={{ textTransform: 'capitalize', margin: 0 }}>
+                {activeTab === 'tasks' && 'Task Planner'}
+                {activeTab === 'backlog' && 'Task Backlog'}
+                {activeTab === 'task-analytics' && 'Planning Analytics'}
+                {activeTab === 'profile' && 'Settings'}
+                {activeTab !== 'tasks' && activeTab !== 'backlog' && activeTab !== 'task-analytics' && activeTab !== 'profile' && activeTab}
+              </h1>
               <div style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -1531,9 +1578,12 @@ export default function App() {
               {activeTab === 'timer' && 'Track contract hours in real-time or log them using the stopwatch.'}
               {activeTab === 'entries' && 'Filter, search, edit, and invoice your logged time sheets.'}
               {activeTab === 'invoices' && 'View, search, pay, delete, and re-download generated client invoices.'}
+              {activeTab === 'analytics' && 'Inspect earning breakdowns and work distribution.'}
               {activeTab === 'clients' && 'Manage corporate client lists and default hourly rates.'}
               {activeTab === 'categories' && 'Configure custom task categories for accurate segmentation.'}
-              {activeTab === 'analytics' && 'Inspect earning breakdowns and work distribution.'}
+              {activeTab === 'tasks' && 'Plan standalone tasks, run focus timers, and compare estimates with actuals.'}
+              {activeTab === 'backlog' && 'Organize future workload, set estimates, and queue tasks for today.'}
+              {activeTab === 'task-analytics' && 'Analyze planning accuracy, variance, and overrun categories.'}
               {activeTab === 'profile' && 'Configure your developer identity, taxation, payments, and system backups.'}
             </p>
           </div>
@@ -1636,6 +1686,22 @@ export default function App() {
               onDeleteCategory={handleDeleteCategory} 
               onUpdateCategory={handleUpdateCategory}
               onTogglePinCategory={handleTogglePinCategory}
+            />
+          )}
+
+          {(activeTab === 'tasks' || activeTab === 'backlog' || activeTab === 'task-analytics') && (
+            <TempoTasks 
+              userId={userIdVal}
+              isAmplifyConfigured={isAmplifyConfigured}
+              dataClient={dataClient}
+              categories={categories}
+              view={
+                activeTab === 'tasks' 
+                  ? 'today' 
+                  : activeTab === 'backlog' 
+                    ? 'backlog' 
+                    : 'analytics'
+              }
             />
           )}
 
@@ -1900,6 +1966,13 @@ export default function App() {
         >
           <Users size={20} />
           <span>Clients</span>
+        </button>
+        <button 
+          className={`mobile-nav-item ${activeTab === 'tasks' ? 'active' : ''}`}
+          onClick={() => setActiveTab('tasks')}
+        >
+          <CheckSquare size={20} />
+          <span>Tasks</span>
         </button>
         <button 
           className={`mobile-nav-item ${activeTab === 'profile' ? 'active' : ''}`}

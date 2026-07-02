@@ -72,6 +72,28 @@ const schema = a.schema({
     amount: a.float().required(),
     notes: a.string(),
   }).authorization((allow) => [allow.owner()]),
+
+  Task: a.model({
+    title: a.string().required(),
+    notes: a.string(),
+    status: a.string().required(), // "planned" | "active" | "paused" | "done"
+    estimatedMinutes: a.float().required(),
+    actualMinutes: a.float().required(),
+    category: a.string(),
+    priority: a.string(), // "low" | "medium" | "high"
+    tags: a.string().array(),
+    scheduledDate: a.string(),
+    createdAt: a.string().required(),
+    startedAt: a.string(),
+    completedAt: a.string(),
+  }).authorization((allow) => [allow.owner()]),
+
+  TaskSession: a.model({
+    taskId: a.string().required(),
+    startedAt: a.string().required(),
+    endedAt: a.string(),
+    durationMinutes: a.float().required(),
+  }).authorization((allow) => [allow.owner()]),
 });
 
 export type Schema = ClientSchema<typeof schema>;
