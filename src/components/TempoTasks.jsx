@@ -283,37 +283,36 @@ export default function TempoTasks({ userId, isAmplifyConfigured, dataClient, ca
     
     // Stop/Pause timer if running and merge updates
     if (activeTimer && activeTimer.taskId === task.id) {
-      const sessionSeconds = Math.floor((Date.now() - activeTimer.startTime) / 1000);
-      const totalAccumulatedSeconds = activeTimer.accumulatedSeconds + sessionSeconds;
-      const sessionMinutes = parseFloat((sessionSeconds / 60).toFixed(2));
+      if (activeTimer.isRunning) {
+        const sessionSeconds = Math.floor((Date.now() - activeTimer.startTime) / 1000);
+        const totalAccumulatedSeconds = activeTimer.accumulatedSeconds + sessionSeconds;
+        const sessionMinutes = parseFloat((sessionSeconds / 60).toFixed(2));
 
-      setActiveTimer({
-        ...activeTimer,
-        isRunning: false,
-        accumulatedSeconds: totalAccumulatedSeconds
-      });
-
-      // Create session
-      const sessionPayload = {
-        taskId: task.id,
-        startedAt: new Date(activeTimer.startTime).toISOString(),
-        endedAt: new Date().toISOString(),
-        durationMinutes: sessionMinutes
-      };
-
-      if (isAmplifyConfigured && dataClient) {
-        await dataClient.models.TaskSession.create(sessionPayload);
-      } else {
-        const newSession = {
-          ...sessionPayload,
-          id: `session-${Date.now()}`
+        // Create session
+        const sessionPayload = {
+          taskId: task.id,
+          startedAt: new Date(activeTimer.startTime).toISOString(),
+          endedAt: new Date().toISOString(),
+          durationMinutes: sessionMinutes
         };
-        const updatedSessions = [...sessionsList, newSession];
-        saveLocalTaskSessions(userId, updatedSessions);
+
+        if (isAmplifyConfigured && dataClient) {
+          await dataClient.models.TaskSession.create(sessionPayload);
+        } else {
+          const newSession = {
+            ...sessionPayload,
+            id: `session-${Date.now()}`
+          };
+          const updatedSessions = [...sessionsList, newSession];
+          saveLocalTaskSessions(userId, updatedSessions);
+        }
+
+        updatedTask.actualMinutes = parseFloat(((task.actualMinutes || 0) + sessionMinutes).toFixed(2));
+        updatedTask.status = 'paused';
       }
 
-      updatedTask.actualMinutes = parseFloat(((task.actualMinutes || 0) + sessionMinutes).toFixed(2));
-      updatedTask.status = 'paused';
+      // Detach active timer from this backlog-moved task
+      setActiveTimer(null);
     }
 
     const payload = {
